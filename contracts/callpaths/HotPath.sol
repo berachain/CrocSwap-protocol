@@ -42,6 +42,9 @@ contract HotPath is MarketSequencer, SettleLayer, ProtocolAccount {
         // Ensure reserve flags are valid
         require(reserveFlags < 0x4, "RF");
 
+        // Ensure the base and quote are different
+        require(base != quote, "SA");
+
         if (base == address(0)) {
             base = wbera;
             // Determine the base value to add based on `isBuy`
