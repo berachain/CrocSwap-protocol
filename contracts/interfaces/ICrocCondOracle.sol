@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3 
+// SPDX-License-Identifier: GPL-3
 
 pragma solidity 0.8.19;
 
@@ -7,7 +7,6 @@ pragma solidity 0.8.19;
  *         an off-chain relayer context. User can gate specific order on a runtime 
  *         condition by calling to the oracle. */
 interface ICrocNonceOracle {
-
     /* @notice Oracle function that tests a condition.
      *
      * @param user The address of the underlying call.
@@ -20,10 +19,11 @@ interface ICrocNonceOracle {
      *
      * @return True if the condition is met. If false, CrocSwap will revert the 
      *         transaction, and the nonce will not be reset. */
-    function checkCrocNonceSet (address user, bytes32 nonceSalt, uint32 nonce,
-                                bytes calldata args) external returns (bool);
+    function checkCrocNonceSet(address user, bytes32 nonceSalt, uint32 nonce, bytes calldata args)
+        external
+        returns (bool);
 }
 
 interface ICrocCondOracle {
-    function checkCrocCond (address user, bytes calldata args) external returns (bool);
+    function checkCrocCond(address user, bytes calldata args) external returns (bool);
 }

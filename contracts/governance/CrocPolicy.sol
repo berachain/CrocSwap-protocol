@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: GPL-3                                                    
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 
-import '../libraries/ProtocolCmd.sol';
-import '../interfaces/ICrocMinion.sol';
-import '../mixins/StorageLayout.sol';
-import '../vendor/compound/Timelock.sol';
-import '../CrocSwapDex.sol';
+import "../libraries/ProtocolCmd.sol";
+import "../interfaces/ICrocMinion.sol";
+import "../mixins/StorageLayout.sol";
+import "../vendor/compound/Timelock.sol";
+import "../CrocSwapDex.sol";
 
 /* @title CrocPolicy
  * @notice Intermediates between the dex mechanism inside CrocSwapDex and the top-level
@@ -18,36 +18,35 @@ import '../CrocSwapDex.sol';
 contract CrocPolicy is ICrocMaster {
     using ProtocolCmd for bytes;
 
-
     /* @notie Emitted whenever the governance authority is set on this contract (either
      *        at construction time or by later call). */
-    event CrocGovernAuthority (address ops, address treasury, address emergency);
+    event CrocGovernAuthority(address ops, address treasury, address emergency);
 
     /* @notice Emitted whenever ops authority runs a protocol command. 
      * @param minion The underlying receiver of the protocol command (i.e. the 
      *               CrocSwapDex contract).
      * @param cmd The command being called on the minion's protocolCmd() function. */
-    event CrocResolutionOps (address minion, bytes cmd);
+    event CrocResolutionOps(address minion, bytes cmd);
 
     /* @notice Emitted whenever treasury authority runs a protocol command. 
      * @param minion The underlying receiver of the protocol command (i.e. the 
      *               CrocSwapDex contract).
      * @param sudo If true, calls the command on CrocSwapDex with elevated privilege
      * @param cmd The command being called on the minion's protocolCmd() function. */
-    event CrocResolutionTreasury (address minion, bool sudo, bytes cmd);
+    event CrocResolutionTreasury(address minion, bool sudo, bytes cmd);
 
     /* @notice Emitted when an emergency halt is invoked.
      * @param minion The underlying receiver of the protocol commands to disable the
      *               proxy contracts (see emergencyHalt() below)
      * @param reason The stated reason for invoking the emergencyHalt() with details. */
-    event CrocEmergencyHalt (address minion, string reason);
+    event CrocEmergencyHalt(address minion, string reason);
 
     /* @notice Emitted when a new policy rule is set or updated.
      * @param conduit The policy conduit the rule applies to
      * @param proxyPath The proxy sidecar index the policy can call
      * @param PolicyRule The policy rules set for this conduit (see PolicyRule comments
      *                   below). */
-    event CrocPolicySet (address conduit, uint16 proxyPath, PolicyRule);
+    event CrocPolicySet(address conduit, uint16 proxyPath, PolicyRule);
 
     /* @notice Emitted when a new policy rule is force updated. This has the same outcome
      *         but can override a policy mandate time. Should not be called in normal
@@ -56,16 +55,15 @@ contract CrocPolicy is ICrocMaster {
      * @param proxyPath The proxy sidecar index the policy can call
      * @param PolicyRule The policy rules set for this conduit (see PolicyRule comments
      *                   below). */
-    event CrocPolicyForce (address conduit, uint16 proxyPath, PolicyRule);
+    event CrocPolicyForce(address conduit, uint16 proxyPath, PolicyRule);
 
     /* @notice Invoked by emergency authority to revoke all authority vested to a policy
      *         conduit oracle. 
      * @param conduit The policy conduit being reset.
      * @param reason The stated reason for invoking the emergency policy update with 
      *               details. */
-    event CrocPolicyEmergency (address conduit, string reason);
+    event CrocPolicyEmergency(address conduit, string reason);
 
-    
     /* @notice Operations authority has the ability to set policy rules for external
      *         oracle conduits and to directly invoke non-privileged protocol commands
      *         (i.e. anything but authority transfers, proxy upgrades or protocol 
@@ -87,27 +85,23 @@ contract CrocPolicy is ICrocMaster {
 
     address public immutable dex_;
 
-    
     /* @param dex Underlying CrocSwapDex contract */
-    constructor (address dex) {
+    constructor(address dex) {
         require(dex != address(0) && CrocSwapDex(payable(dex)).acceptCrocDex(), "Invalid CrocSwapDex");
         dex_ = dex;
         opsAuthority_ = msg.sender;
         treasuryAuthority_ = msg.sender;
-        emergencyAuthority_ = msg.sender;  
+        emergencyAuthority_ = msg.sender;
     }
-
-
 
     /* @notice Transfers the existing governance authorities to new addresses. Can only
      *         be invoked by the treasury authority.
      * @dev    One or more of the authority addresses can be kept the same if the caller
      *         only wants to transfer one or two of the authorities. */
-    function transferGovernance (address ops, address treasury, address emergency)
-        treasuryAuth public {
+    function transferGovernance(address ops, address treasury, address emergency) public treasuryAuth {
         opsAuthority_ = ops;
         treasuryAuthority_ = treasury;
-        emergencyAuthority_ = emergency;  
+        emergencyAuthority_ = emergency;
         Timelock(payable(treasury)).acceptAdmin();
         Timelock(payable(ops)).acceptAdmin();
         Timelock(payable(emergency)).acceptAdmin();
@@ -120,8 +114,7 @@ contract CrocPolicy is ICrocMaster {
      *               called on.
      * @param proxyPath The proxy sidecar index the policy calls
      * @param cmd    The content of the command passed to the protocolCmd() method. */
-    function opsResolution (address minion, uint16 proxyPath,
-                            bytes calldata cmd) opsAuth public {
+    function opsResolution(address minion, uint16 proxyPath, bytes calldata cmd) public opsAuth {
         emit CrocResolutionOps(minion, cmd);
         ICrocMinion(minion).protocolCmd(proxyPath, cmd, false);
     }
@@ -134,9 +127,7 @@ contract CrocPolicy is ICrocMaster {
      * @param proxyPath The proxy sidecar index the policy calls
      * @param sudo   If true, runs the call on CrocSwapDex with elevated privilege
      * @param cmd    The content of the command passed to the protocolCmd() method. */
-    function treasuryResolution (address minion, uint16 proxyPath,
-                                 bytes calldata cmd, bool sudo)
-        treasuryAuth public {
+    function treasuryResolution(address minion, uint16 proxyPath, bytes calldata cmd, bool sudo) public treasuryAuth {
         emit CrocResolutionTreasury(minion, sudo, cmd);
         ICrocMinion(minion).protocolCmd(proxyPath, cmd, sudo);
     }
@@ -152,13 +143,12 @@ contract CrocPolicy is ICrocMaster {
      * @param minion The address of the underlying CrocSwapDex contract.
      * @param reason The stated reason for invoking the emergency policy update with 
      *               details. */
-    function emergencyHalt (address minion, string calldata reason)
-        emergencyAuth public {
+    function emergencyHalt(address minion, string calldata reason) public emergencyAuth {
         emit CrocEmergencyHalt(minion, reason);
 
         bytes memory cmd = ProtocolCmd.encodeHotPath(false);
         ICrocMinion(minion).protocolCmd(CrocSlots.SAFE_MODE_PROXY_PATH, cmd, true);
-        
+
         cmd = ProtocolCmd.encodeSafeMode(true);
         ICrocMinion(minion).protocolCmd(CrocSlots.SAFE_MODE_PROXY_PATH, cmd, true);
     }
@@ -197,7 +187,7 @@ contract CrocPolicy is ICrocMaster {
      * @param minion The address of the underlying CrocSwapDex contract
      * @param proxyPath The proxy sidecar index for the policy being invoked
      * @param cmd    The content of the command passed to protocolCmd() */
-    function invokePolicy (address minion, uint16 proxyPath, bytes calldata cmd) public {
+    function invokePolicy(address minion, uint16 proxyPath, bytes calldata cmd) public {
         bytes32 ruleKey = keccak256(abi.encode(msg.sender, proxyPath));
         PolicyRule memory policy = rules_[ruleKey];
         require(passesPolicy(policy, cmd), "Policy authority");
@@ -212,11 +202,10 @@ contract CrocPolicy is ICrocMaster {
      * @param proxyPath The proxy sidecar index the policy calls
      * @param policy  The content of the updated policy rule. This will fully overwrite
      *                the previous policy rule (if any), assuming the transition is legal
-     *                relative to the mandate. */    
-    function setPolicy (address conduit, uint16 proxyPath,
-                        PolicyRule calldata policy) opsAuth public {
+     *                relative to the mandate. */
+    function setPolicy(address conduit, uint16 proxyPath, PolicyRule calldata policy) public opsAuth {
         bytes32 key = rulesKey(conduit, proxyPath);
-        
+
         PolicyRule storage prev = rules_[key];
         require(isLegal(prev, policy), "Illegal policy update");
 
@@ -224,8 +213,7 @@ contract CrocPolicy is ICrocMaster {
         emit CrocPolicySet(conduit, proxyPath, policy);
     }
 
-    function rulesKey (address conduit, uint16 proxyPath)
-        private pure returns (bytes32) {
+    function rulesKey(address conduit, uint16 proxyPath) private pure returns (bytes32) {
         return keccak256(abi.encode(conduit, proxyPath));
     }
 
@@ -237,8 +225,7 @@ contract CrocPolicy is ICrocMaster {
      * @param proxyPath The proxy sidecar index the policy calls
      * @param policy  The content of the updated policy rule. This will fully overwrite
      *                the previous policy rule. */
-    function forcePolicy (address conduit, uint16 proxyPath, PolicyRule calldata policy)
-        treasuryAuth public {
+    function forcePolicy(address conduit, uint16 proxyPath, PolicyRule calldata policy) public treasuryAuth {
         bytes32 key = rulesKey(conduit, proxyPath);
         rules_[key] = policy;
         emit CrocPolicyForce(conduit, proxyPath, policy);
@@ -252,8 +239,7 @@ contract CrocPolicy is ICrocMaster {
      * @param proxyPath The proxy sidecar index the policy calls
      * @param policy  The content of the updated policy rule. This will fully overwrite
      *                the previous policy rule. */
-    function emergencyReset (address conduit, uint16 proxyPath,
-                             string calldata reason) emergencyAuth public {
+    function emergencyReset(address conduit, uint16 proxyPath, string calldata reason) public emergencyAuth {
         bytes32 key = rulesKey(conduit, proxyPath);
         rules_[key].cmdFlags_ = bytes32(0);
         rules_[key].mandateTime_ = 0;
@@ -265,25 +251,22 @@ contract CrocPolicy is ICrocMaster {
      *         pre-existing policy state.
      * @return Returns true if the policy iteration either 1) occurs outside the mandate
      *         or 2) the new policy does not revoke any pre-existing command flags. */
-    function isLegal (PolicyRule memory prev, PolicyRule memory next)
-        private view returns (bool) {
+    function isLegal(PolicyRule memory prev, PolicyRule memory next) private view returns (bool) {
         if (weakensPolicy(prev, next)) {
             return isPostMandate(prev);
-            
         }
         return true;
     }
 
     /* @notice Determines if we're operating inside an existing mandate window. */
-    function isPostMandate (PolicyRule memory prev) private view returns (bool) {
+    function isPostMandate(PolicyRule memory prev) private view returns (bool) {
         return SafeCast.timeUint32() > prev.mandateTime_;
     }
 
     /* @notice Returns true if the proposed policy weakens any of the guarantees
      *         of the existing policy. This would occur either by revoking an existing
      *         flag or shortening the mandate window. */
-    function weakensPolicy (PolicyRule memory prev, PolicyRule memory next)
-        private pure returns (bool) {
+    function weakensPolicy(PolicyRule memory prev, PolicyRule memory next) private pure returns (bool) {
         bool weakensCmd = prev.cmdFlags_ & ~next.cmdFlags_ > 0;
         bool weakensMandate = next.mandateTime_ < prev.mandateTime_;
         return weakensCmd || weakensMandate;
@@ -295,8 +278,7 @@ contract CrocPolicy is ICrocMaster {
      *                    CrocSwapDex contract.
      * @return Returns true if the proposed protocolCmd message is authorized by the 
      *         policy object. */
-    function passesPolicy (PolicyRule memory policy, bytes calldata protocolCmd)
-        public view returns (bool) {
+    function passesPolicy(PolicyRule memory policy, bytes calldata protocolCmd) public view returns (bool) {
         if (SafeCast.timeUint32() >= expireTime(policy)) {
             return false;
         }
@@ -304,23 +286,26 @@ contract CrocPolicy is ICrocMaster {
         return isFlagSet(policy.cmdFlags_, flagIdx);
     }
 
-    function expireTime (PolicyRule memory policy) private pure returns (uint32) {
+    function expireTime(PolicyRule memory policy) private pure returns (uint32) {
         return policy.mandateTime_ + policy.expiryOffset_;
     }
 
     /* @notice Returns true if the flag at index is set on the policy command flag 
      *         vector  */
-    function isFlagSet (bytes32 cmdFlags, uint8 flagIdx) private pure returns (bool) {
-        return (bytes32(uint256(1)) << flagIdx) & cmdFlags > 0;         
+    function isFlagSet(bytes32 cmdFlags, uint8 flagIdx) private pure returns (bool) {
+        return (bytes32(uint256(1)) << flagIdx) & cmdFlags > 0;
     }
 
-    function acceptsCrocAuthority() public override pure returns (bool) { return true; }
+    function acceptsCrocAuthority() public pure override returns (bool) {
+        return true;
+    }
 
     /* @notice Permissions gate for normal day-to-day operations. */
     modifier opsAuth() {
-        require(msg.sender == opsAuthority_ ||
-                msg.sender == treasuryAuthority_ ||
-                msg.sender == emergencyAuthority_, "Ops Authority");
+        require(
+            msg.sender == opsAuthority_ || msg.sender == treasuryAuthority_ || msg.sender == emergencyAuthority_,
+            "Ops Authority"
+        );
         _;
     }
 
@@ -338,6 +323,4 @@ contract CrocPolicy is ICrocMaster {
         require(msg.sender == emergencyAuthority_, "Emergency Authority");
         _;
     }
-
-
 }

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.19;
 
-import './SafeCast.sol';
+import "./SafeCast.sol";
 
 /* @title Protocol Command library.
  *
@@ -14,8 +14,6 @@ import './SafeCast.sol';
  *         code. This library contains all of these sub-command codes in a single location for
  *         easy lookup. */
 library ProtocolCmd {
-    
-    
     ////////////////////////////////////////////////////////////////////////////
     // Privileged commands invokable by direct governance only.
     ////////////////////////////////////////////////////////////////////////////
@@ -25,7 +23,7 @@ library ProtocolCmd {
     uint8 constant UPGRADE_DEX_CODE = 21;
     // Code to force hot path to use the proxy contract
     uint8 constant HOT_OPEN_CODE = 22;
-    // Code to toggle on or off emergency safe mode 
+    // Code to toggle on or off emergency safe mode
     uint8 constant SAFE_MODE_CODE = 23;
     // Code to collect accumulated protocol fees for the treasury.
     uint8 constant COLLECT_TREASURY_CODE = 40;
@@ -33,7 +31,6 @@ library ProtocolCmd {
     uint8 constant SET_TREASURY_CODE = 41;
     ////////////////////////////////////////////////////////////////////////////
 
-    
     ////////////////////////////////////////////////////////////////////////////
     // General purpose policy commands.
     ////////////////////////////////////////////////////////////////////////////
@@ -54,21 +51,16 @@ library ProtocolCmd {
     uint8 constant RELAYER_TAKE_CODE = 116;
     ////////////////////////////////////////////////////////////////////////////
 
-
-    function encodeHotPath (bool open)
-        internal pure returns (bytes memory) {
+    function encodeHotPath(bool open) internal pure returns (bytes memory) {
         return abi.encode(HOT_OPEN_CODE, open);
     }
 
-    function encodeSafeMode (bool safeMode)
-        internal pure returns (bytes memory) {
+    function encodeSafeMode(bool safeMode) internal pure returns (bytes memory) {
         return abi.encode(SAFE_MODE_CODE, safeMode);
     }
 }
 
-
 library UserCmd {
-
     ////////////////////////////////////////////////////////////////////////////
     // General purpose cold path codes
     ////////////////////////////////////////////////////////////////////////////

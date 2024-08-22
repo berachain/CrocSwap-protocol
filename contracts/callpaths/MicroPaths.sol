@@ -2,16 +2,16 @@
 
 pragma solidity 0.8.19;
 
-import '../libraries/Directives.sol';
-import '../libraries/Encoding.sol';
-import '../libraries/TokenFlow.sol';
-import '../libraries/PriceGrid.sol';
-import '../libraries/Chaining.sol';
-import '../mixins/SettleLayer.sol';
-import '../mixins/PoolRegistry.sol';
-import '../mixins/MarketSequencer.sol';
-import '../mixins/StorageLayout.sol';
-import '../CrocEvents.sol';
+import "../libraries/Directives.sol";
+import "../libraries/Encoding.sol";
+import "../libraries/TokenFlow.sol";
+import "../libraries/PriceGrid.sol";
+import "../libraries/Chaining.sol";
+import "../mixins/SettleLayer.sol";
+import "../mixins/PoolRegistry.sol";
+import "../mixins/MarketSequencer.sol";
+import "../mixins/StorageLayout.sol";
+import "../CrocEvents.sol";
 
 /* @title Micro paths callpath sidecar.
  * @notice Defines a proxy sidecar contract that's used to move code outside the 
@@ -24,7 +24,6 @@ import '../CrocEvents.sol';
  *         only be invoked with DELEGATECALL so that it operates on the contract state
  *         within the primary CrocSwap contract. */
 contract MicroPaths is MarketSequencer {
-
     /* @notice Burns liquidity on a concentrated range position within a single curve.
      *
      * @param price The price of the curve. Represented as the square root of the exchange
@@ -45,29 +44,35 @@ contract MicroPaths is MarketSequencer {
      * @return quoteFlow The user<->pool flow on the quote-side token associated with the 
      *                   action. 
      * @return seedOut The updated ambient seed liquidity on the curve.
-     * @return concOut The updated concentrated liquidity on the curve. */     
-    function burnRange (uint128 price, int24 priceTick, uint128 seed, uint128 conc,
-                        uint64 seedGrowth, uint64 concGrowth,
-                        int24 lowTick, int24 highTick, uint128 liq, bytes32 poolHash)
-        public payable returns (int128 baseFlow, int128 quoteFlow,
-                        uint128 seedOut, uint128 concOut) {
+     * @return concOut The updated concentrated liquidity on the curve. */
+    function burnRange(
+        uint128 price,
+        int24 priceTick,
+        uint128 seed,
+        uint128 conc,
+        uint64 seedGrowth,
+        uint64 concGrowth,
+        int24 lowTick,
+        int24 highTick,
+        uint128 liq,
+        bytes32 poolHash
+    ) public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut, uint128 concOut) {
         CurveMath.CurveState memory curve;
         curve.priceRoot_ = price;
         curve.ambientSeeds_ = seed;
         curve.concLiq_ = conc;
         curve.seedDeflator_ = seedGrowth;
         curve.concGrowth_ = concGrowth;
-        
-        (baseFlow, quoteFlow) = burnRange(curve, priceTick, lowTick, highTick,
-                                          liq, poolHash, lockHolder_);
+
+        (baseFlow, quoteFlow) = burnRange(curve, priceTick, lowTick, highTick, liq, poolHash, lockHolder_);
 
         concOut = curve.concLiq_;
         seedOut = curve.ambientSeeds_;
 
-        emit CrocEvents.CrocMicroBurnRange
-            (abi.encode(price, priceTick, seed, conc, seedGrowth, concGrowth,
-                        lowTick, highTick, liq, poolHash), 
-            abi.encode(baseFlow, quoteFlow, concOut, seedOut));
+        emit CrocEvents.CrocMicroBurnRange(
+            abi.encode(price, priceTick, seed, conc, seedGrowth, concGrowth, lowTick, highTick, liq, poolHash),
+            abi.encode(baseFlow, quoteFlow, concOut, seedOut)
+        );
     }
 
     /* @notice Mints liquidity on a concentrated range position within a single curve.
@@ -90,31 +95,37 @@ contract MicroPaths is MarketSequencer {
      * @return quoteFlow The user<->pool flow on the quote-side token associated with the 
      *                   action. 
      * @return seedOut The updated ambient seed liquidity on the curve.
-     * @return concOut The updated concentrated liquidity on the curve. */         
-    function mintRange (uint128 price, int24 priceTick, uint128 seed, uint128 conc,
-                        uint64 seedGrowth, uint64 concGrowth,
-                        int24 lowTick, int24 highTick, uint128 liq, bytes32 poolHash)
-        public payable returns (int128 baseFlow, int128 quoteFlow,
-                        uint128 seedOut, uint128 concOut) {
+     * @return concOut The updated concentrated liquidity on the curve. */
+    function mintRange(
+        uint128 price,
+        int24 priceTick,
+        uint128 seed,
+        uint128 conc,
+        uint64 seedGrowth,
+        uint64 concGrowth,
+        int24 lowTick,
+        int24 highTick,
+        uint128 liq,
+        bytes32 poolHash
+    ) public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut, uint128 concOut) {
         CurveMath.CurveState memory curve;
         curve.priceRoot_ = price;
         curve.ambientSeeds_ = seed;
         curve.concLiq_ = conc;
         curve.seedDeflator_ = seedGrowth;
         curve.concGrowth_ = concGrowth;
-        
-        (baseFlow, quoteFlow) = mintRange(curve, priceTick, lowTick, highTick, liq,
-                                          poolHash, lockHolder_);
+
+        (baseFlow, quoteFlow) = mintRange(curve, priceTick, lowTick, highTick, liq, poolHash, lockHolder_);
 
         concOut = curve.concLiq_;
         seedOut = curve.ambientSeeds_;
 
-        emit CrocEvents.CrocMicroMintRange
-            (abi.encode(price, priceTick, seed, conc, seedGrowth, concGrowth,
-                        lowTick, highTick, liq, poolHash), 
-            abi.encode(baseFlow, quoteFlow, concOut, seedOut));
+        emit CrocEvents.CrocMicroMintRange(
+            abi.encode(price, priceTick, seed, conc, seedGrowth, concGrowth, lowTick, highTick, liq, poolHash),
+            abi.encode(baseFlow, quoteFlow, concOut, seedOut)
+        );
     }
-    
+
     /* @notice Burns liquidity from an ambient liquidity position on a single curve.
      *
      * @param price The price of the curve. Represented as the square root of the exchange
@@ -131,26 +142,31 @@ contract MicroPaths is MarketSequencer {
      *                  vice versa.
      * @return quoteFlow The user<->pool flow on the quote-side token associated with the 
      *                   action. 
-     * @return seedOut The updated ambient seed liquidity on the curve. */     
-    function burnAmbient (uint128 price, uint128 seed, uint128 conc,
-                          uint64 seedGrowth, uint64 concGrowth,
-                          uint128 liq, bytes32 poolHash)
-        public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut) {
+     * @return seedOut The updated ambient seed liquidity on the curve. */
+    function burnAmbient(
+        uint128 price,
+        uint128 seed,
+        uint128 conc,
+        uint64 seedGrowth,
+        uint64 concGrowth,
+        uint128 liq,
+        bytes32 poolHash
+    ) public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut) {
         CurveMath.CurveState memory curve;
         curve.priceRoot_ = price;
         curve.ambientSeeds_ = seed;
         curve.concLiq_ = conc;
         curve.seedDeflator_ = seedGrowth;
         curve.concGrowth_ = concGrowth;
-        
+
         (baseFlow, quoteFlow) = burnAmbient(curve, liq, poolHash, lockHolder_);
-        
+
         seedOut = curve.ambientSeeds_;
 
-        emit CrocEvents.CrocMicroBurnAmbient
-            (abi.encode(price, seed, conc, seedGrowth, concGrowth,
-                        liq, poolHash), 
-            abi.encode(baseFlow, quoteFlow, seedOut));
+        emit CrocEvents.CrocMicroBurnAmbient(
+            abi.encode(price, seed, conc, seedGrowth, concGrowth, liq, poolHash),
+            abi.encode(baseFlow, quoteFlow, seedOut)
+        );
     }
 
     /* @notice Mints liquidity from an ambient liquidity position on a single curve.
@@ -169,26 +185,31 @@ contract MicroPaths is MarketSequencer {
      *                  vice versa.
      * @return quoteFlow The user<->pool flow on the quote-side token associated with the 
      *                   action. 
-     * @return seedOut The updated ambient seed liquidity on the curve. */         
-    function mintAmbient (uint128 price, uint128 seed, uint128 conc,
-                          uint64 seedGrowth, uint64 concGrowth,
-                          uint128 liq, bytes32 poolHash)
-        public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut) {
+     * @return seedOut The updated ambient seed liquidity on the curve. */
+    function mintAmbient(
+        uint128 price,
+        uint128 seed,
+        uint128 conc,
+        uint64 seedGrowth,
+        uint64 concGrowth,
+        uint128 liq,
+        bytes32 poolHash
+    ) public payable returns (int128 baseFlow, int128 quoteFlow, uint128 seedOut) {
         CurveMath.CurveState memory curve;
         curve.priceRoot_ = price;
         curve.ambientSeeds_ = seed;
         curve.concLiq_ = conc;
         curve.seedDeflator_ = seedGrowth;
         curve.concGrowth_ = concGrowth;
-        
+
         (baseFlow, quoteFlow) = mintAmbient(curve, liq, poolHash, lockHolder_);
 
         seedOut = curve.ambientSeeds_;
 
-        emit CrocEvents.CrocMicroMintAmbient
-            (abi.encode(price, seed, conc, seedGrowth, concGrowth,
-                        liq, poolHash), 
-            abi.encode(baseFlow, quoteFlow, seedOut));
+        emit CrocEvents.CrocMicroMintAmbient(
+            abi.encode(price, seed, conc, seedGrowth, concGrowth, liq, poolHash),
+            abi.encode(baseFlow, quoteFlow, seedOut)
+        );
     }
 
     /* @notice Executes a user-directed swap through a single liquidity curve.
@@ -207,14 +228,25 @@ contract MicroPaths is MarketSequencer {
      * @return ambientOut The cumulative ambient seed deflator on the curve post-swap.
      * @return concGrowthOut The cumulative concentrated rewards growth on the curve 
      *                       post-swap. */
-    function sweepSwap (CurveMath.CurveState memory curve, int24 midTick,
-                        Directives.SwapDirective memory swap,
-                        PoolSpecs.PoolCursor memory pool)
-        public payable returns (Chaining.PairFlow memory accum,
-                                uint128 priceOut, uint128 seedOut, uint128 concOut,
-                                uint64 ambientOut, uint64 concGrowthOut) {
+    function sweepSwap(
+        CurveMath.CurveState memory curve,
+        int24 midTick,
+        Directives.SwapDirective memory swap,
+        PoolSpecs.PoolCursor memory pool
+    )
+        public
+        payable
+        returns (
+            Chaining.PairFlow memory accum,
+            uint128 priceOut,
+            uint128 seedOut,
+            uint128 concOut,
+            uint64 ambientOut,
+            uint64 concGrowthOut
+        )
+    {
         sweepSwapLiq(accum, curve, midTick, swap, pool);
-        
+
         priceOut = curve.priceRoot_;
         seedOut = curve.ambientSeeds_;
         concOut = curve.concLiq_;
@@ -223,13 +255,13 @@ contract MicroPaths is MarketSequencer {
 
         emit CrocEvents.CrocMicroSwap(
             abi.encode(curve, midTick, swap, pool),
-            abi.encode(accum, priceOut, seedOut, concOut, ambientOut, concGrowthOut));
+            abi.encode(accum, priceOut, seedOut, concOut, ambientOut, concGrowthOut)
+        );
     }
 
     /* @notice Used at upgrade time to verify that the contract is a valid Croc sidecar proxy and used
      *         in the correct slot. */
-    function acceptCrocProxyRole (address, uint16 slot) public pure returns (bool) {
+    function acceptCrocProxyRole(address, uint16 slot) public pure returns (bool) {
         return slot == CrocSlots.MICRO_PROXY_IDX;
     }
 }
-

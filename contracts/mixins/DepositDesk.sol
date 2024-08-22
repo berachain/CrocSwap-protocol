@@ -1,16 +1,15 @@
-// SPDX-License-Identifier: GPL-3                                                          
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './StorageLayout.sol';
-import './SettleLayer.sol';
-import '../interfaces/IERC20Minimal.sol';
+import "./StorageLayout.sol";
+import "./SettleLayer.sol";
+import "../interfaces/IERC20Minimal.sol";
 
 contract DepositDesk is SettleLayer {
     using SafeCast for uint256;
 
-    constructor(address initialWbera) SettleLayer(initialWbera) {
-    }
+    constructor(address initialWbera) SettleLayer(initialWbera) {}
     /* @notice Directly deposits a certain amount of surplus collateral to a user's
      *         account.
      *
@@ -29,7 +28,8 @@ contract DepositDesk is SettleLayer {
      * @param value The amount to be collected from owner and deposited.
      * @param token The ERC20 address of the token (or native Ether if set to 0x0) being
      *              deposited. */
-    function depositSurplus (address recv, uint128 value, address token) internal {
+
+    function depositSurplus(address recv, uint128 value, address token) internal {
         debitTransfer(lockHolder_, value, token, popMsgVal());
         bytes32 key = tokenKey(recv, token);
         userBals_[key].surplusCollateral_ += value;
@@ -45,9 +45,15 @@ contract DepositDesk is SettleLayer {
      * @param deadline The deadline that this ERC20 permit call is valid for
      * @param v,r,s  The EIP-712 signature approviing Permit of the token underlying 
      *               token to be deposited. */
-    function depositSurplusPermit (address recv, uint128 value, address token,
-                                   uint256 deadline, uint8 v, bytes32 r, bytes32 s)
-        internal {
+    function depositSurplusPermit(
+        address recv,
+        uint128 value,
+        address token,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
         IERC20Permit(token).permit(recv, address(this), value, deadline, v, r, s);
         depositSurplus(recv, value, token);
     }
@@ -66,7 +72,7 @@ contract DepositDesk is SettleLayer {
      *                  Negative - pays out the entire balance *excluding* the size amount
      * @param token The ERC20 address of the token (or native Ether if set to 0x0) being
      *              disbursed. */
-    function disburseSurplus (address recv, int128 size, address token) internal {
+    function disburseSurplus(address recv, int128 size, address token) internal {
         bytes32 key = tokenKey(lockHolder_, token);
         uint128 balance = userBals_[key].surplusCollateral_;
         uint128 value = applyTransactVal(size, balance);
@@ -85,7 +91,7 @@ contract DepositDesk is SettleLayer {
      *                  Zero     - pays out the entire balance
      *                  Negative - pays out the entire balance *excluding* the size amount
      * @param token The address of the token the surplus collateral is sent for. */
-    function transferSurplus (address to, int128 size, address token) internal {
+    function transferSurplus(address to, int128 size, address token) internal {
         bytes32 fromKey = tokenKey(lockHolder_, token);
         bytes32 toKey = tokenKey(to, token);
         moveSurplus(fromKey, toKey, size);
@@ -108,8 +114,7 @@ contract DepositDesk is SettleLayer {
      *                  Zero     - pays out the entire balance
      *                  Negative - pays out the entire balance *excluding* the size amount
      * @param token The address of the token the surplus collateral is sent for. */
-    function sidePocketSurplus (uint256 fromSalt, uint256 toSalt, int128 size,
-                                address token) internal {
+    function sidePocketSurplus(uint256 fromSalt, uint256 toSalt, int128 size, address token) internal {
         address from = virtualizeUser(lockHolder_, fromSalt);
         address to = virtualizeUser(lockHolder_, toSalt);
         bytes32 fromKey = tokenKey(from, token);
@@ -119,7 +124,7 @@ contract DepositDesk is SettleLayer {
 
     /* @notice Lower level function to move surplus collateral from one fully salted 
      *         (user+token+side pocket) to another fully salted slot. */
-    function moveSurplus (bytes32 fromKey, bytes32 toKey, int128 size) private {
+    function moveSurplus(bytes32 fromKey, bytes32 toKey, int128 size) private {
         uint128 balance = userBals_[fromKey].surplusCollateral_;
         uint128 value = applyTransactVal(size, balance);
 
@@ -132,8 +137,7 @@ contract DepositDesk is SettleLayer {
      *            Positive Value - Transfer this specified amount
      *            Zero Value - Transfer the full balance
      *            Negative Value - Transfer everything *above* this specified amount. */
-    function applyTransactVal (int128 qty, uint128 balance) private pure
-        returns (uint128 value) {
+    function applyTransactVal(int128 qty, uint128 balance) private pure returns (uint128 value) {
         if (qty < 0) {
             value = balance - uint128(-qty);
         } else if (qty == 0) {
@@ -141,7 +145,6 @@ contract DepositDesk is SettleLayer {
         } else {
             value = uint128(qty);
         }
-        require(value <= balance, "SC");        
+        require(value <= balance, "SC");
     }
 }
-

@@ -7,7 +7,6 @@ pragma experimental ABIEncoderV2;
  * @notice Library for defining, querying, and encoding the specifications of the
  *         parameters of a pool type. */
 library PoolSpecs {
-
     /* @notice Specifcations of the parameters of a single pool type. Any given pair
      *         may have many different pool types, each of which may operate as segmented
      *         markets with different underlying behavior to the AMM. 
@@ -87,39 +86,45 @@ library PoolSpecs {
         address oracle_;
     }
 
-
     /* @notice Given a mapping of pools, a base/quote token pair and a pool type index,
      *         copies the pool specification to memory. */
-    function queryPool (mapping(bytes32 => Pool) storage pools,
-                        address tokenX, address tokenY, uint256 poolIdx)
-        internal view returns (PoolCursor memory specs) {
+    function queryPool(mapping(bytes32 => Pool) storage pools, address tokenX, address tokenY, uint256 poolIdx)
+        internal
+        view
+        returns (PoolCursor memory specs)
+    {
         bytes32 key = encodeKey(tokenX, tokenY, poolIdx);
         Pool memory pool = pools[key];
         address oracle = oracleForPool(poolIdx, pool.oracleFlags_);
-        return PoolCursor ({head_: pool, hash_: key, oracle_: oracle});
+        return PoolCursor({head_: pool, hash_: key, oracle_: oracle});
     }
 
     /* @notice Given a mapping of pools, a base/quote token pair and a pool type index,
      *         retrieves a storage reference to the pool specification. */
-    function selectPool (mapping(bytes32 => Pool) storage pools,
-                         address tokenX, address tokenY, uint256 poolIdx)
-        internal view returns (Pool storage specs) {
+    function selectPool(mapping(bytes32 => Pool) storage pools, address tokenX, address tokenY, uint256 poolIdx)
+        internal
+        view
+        returns (Pool storage specs)
+    {
         bytes32 key = encodeKey(tokenX, tokenY, poolIdx);
         return pools[key];
     }
 
     /* @notice Writes a pool specification for a pair and pool type combination. */
-    function writePool (mapping(bytes32 => Pool) storage pools,
-                        address tokenX, address tokenY, uint256 poolIdx,
-                        Pool memory val) internal {
+    function writePool(
+        mapping(bytes32 => Pool) storage pools,
+        address tokenX,
+        address tokenY,
+        uint256 poolIdx,
+        Pool memory val
+    ) internal {
         bytes32 key = encodeKey(tokenX, tokenY, poolIdx);
         pools[key] = val;
     }
 
     /* @notice Hashes the key associated with a pool for a base/quote asset pair and
      *         a specific pool type index. */
-    function encodeKey (address tokenX, address tokenY, uint256 poolIdx)
-        internal pure returns (bytes32) {
+    function encodeKey(address tokenX, address tokenY, uint256 poolIdx) internal pure returns (bytes32) {
         require(tokenX < tokenY);
         return keccak256(abi.encode(tokenX, tokenY, poolIdx));
     }
@@ -131,13 +136,10 @@ library PoolSpecs {
      *         on the first 160-bits of the pool type value. This means users can know 
      *         ahead of time if a pool can be oracled by checking the bits in the pool
      *         index. */
-    function oracleForPool (uint256 poolIdx, uint8 oracleFlags)
-        internal pure returns (address) {
+    function oracleForPool(uint256 poolIdx, uint8 oracleFlags) internal pure returns (address) {
         uint8 ORACLE_ENABLED_MASK = 0x1;
         bool oracleEnabled = (oracleFlags & ORACLE_ENABLED_MASK == 1);
-        return oracleEnabled ?
-            address(uint160(poolIdx >> 96)) :
-            address(0);
+        return oracleEnabled ? address(uint160(poolIdx >> 96)) : address(0);
     }
 
     /* @notice Constructs a cryptographically unique virtual address based off a base
@@ -148,8 +150,7 @@ library PoolSpecs {
      * @param salt A salt unique to the base token tracker contract.
      *
      * @return A synthetic token address corresponding to the specific virtual address. */
-    function virtualizeAddress (address base, uint256 salt) internal
-        pure returns (address) {
+    function virtualizeAddress(address base, uint256 salt) internal pure returns (address) {
         bytes32 hash = keccak256(abi.encode(base, salt));
         uint160 hashTrail = uint160((uint256(hash) << 96) >> 96);
         return address(hashTrail);

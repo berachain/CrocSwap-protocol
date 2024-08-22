@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: GPL-3                                                          
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import '../libraries/Directives.sol';
-import '../libraries/TransferHelper.sol';
-import '../libraries/TokenFlow.sol';
-import './StorageLayout.sol';
-import './AgentMask.sol';
+import "../libraries/Directives.sol";
+import "../libraries/TransferHelper.sol";
+import "../libraries/TokenFlow.sol";
+import "./StorageLayout.sol";
+import "./AgentMask.sol";
 
 /* @title Settle layer mixin
  * @notice Provides facilities for settling, previously determined, collateral flows
@@ -42,8 +42,7 @@ contract SettleLayer is AgentMask {
      * @param ethFlows Any prior Ether-specific flows from previous legs. (This final
      *            leg may also be denominated in Eth, and this param should *not* include
      *            the current leg's value.) */
-    function settleFinal (int128 flow, Directives.SettlementChannel memory dir,
-                          int128 ethFlows) internal {
+    function settleFinal(int128 flow, Directives.SettlementChannel memory dir, int128 ethFlows) internal {
         (address debitor, address creditor) = agentsSettle();
         settleFinal(debitor, creditor, flow, dir, ethFlows);
     }
@@ -61,8 +60,7 @@ contract SettleLayer is AgentMask {
      * @return ethFlows Any native Eth flows associated with this leg. It's the caller's
      *                  responsibility to accumulate and sum this value for all calls,
      *                  then pass to settleFinal() at the end of the transaction. */
-    function settleLeg (int128 flow, Directives.SettlementChannel memory dir)
-        internal returns (int128 ethFlows) {
+    function settleLeg(int128 flow, Directives.SettlementChannel memory dir) internal returns (int128 ethFlows) {
         (address debitor, address creditor) = agentsSettle();
         return settleLeg(debitor, creditor, flow, dir);
     }
@@ -86,9 +84,13 @@ contract SettleLayer is AgentMask {
      * @param ethFlows Any prior Ether-specific flows from previous legs. (This final
      *            leg may also be denominated in Eth, and this param should *not* include
      *            the current leg's value.) */
-    function settleFinal (address debitor, address creditor, int128 flow,
-                          Directives.SettlementChannel memory dir,
-                          int128 ethFlows) internal {
+    function settleFinal(
+        address debitor,
+        address creditor,
+        int128 flow,
+        Directives.SettlementChannel memory dir,
+        int128 ethFlows
+    ) internal {
         ethFlows += settleLeg(debitor, creditor, flow, dir);
         transactEther(debitor, creditor, ethFlows, dir.useSurplus_);
     }
@@ -109,9 +111,10 @@ contract SettleLayer is AgentMask {
      * @return ethFlows Any native Eth flows associated with this leg. It's the caller's
      *                  responsibility to accumulate and sum this value for all calls,
      *                  then pass to settleFinal() at the end of the transaction. */
-    function settleLeg (address debitor, address creditor, int128 flow,
-                        Directives.SettlementChannel memory dir)
-        internal returns (int128 ethFlows) {
+    function settleLeg(address debitor, address creditor, int128 flow, Directives.SettlementChannel memory dir)
+        internal
+        returns (int128 ethFlows)
+    {
         require(passesLimit(flow, dir.limitQty_), "K");
         if (moreThanDust(flow, dir.dustThresh_)) {
             ethFlows = pumpFlow(debitor, creditor, flow, dir.token_, dir.useSurplus_);
@@ -128,8 +131,7 @@ contract SettleLayer is AgentMask {
      * @param quoteFlow The flow associated with the quote side of the pair.
      * @param reserveFlags Bitwise flags to indicate whether the base and/or quote flows
      *                     should be settled from caller's surplus collateral */
-    function settleFlows (address base, address quote, int128 baseFlow, int128 quoteFlow,
-                          uint8 reserveFlags) internal {
+    function settleFlows(address base, address quote, int128 baseFlow, int128 quoteFlow, uint8 reserveFlags) internal {
         (address debitor, address creditor) = agentsSettle();
         settleFlat(debitor, creditor, base, baseFlow, quote, quoteFlow, reserveFlags);
     }
@@ -145,9 +147,7 @@ contract SettleLayer is AgentMask {
      *                 but will always be positive/debit for this operation.
      * @param quote The ERC20 address of the quote token collateral in the pair.
      * @param quoteFlow The flow associated with the quote side of the pair. */
-    function settleInitFlow (address recv,
-                             address base, int128 baseFlow,
-                             address quote, int128 quoteFlow) internal {
+    function settleInitFlow(address recv, address base, int128 baseFlow, address quote, int128 quoteFlow) internal {
         (uint256 baseSnap, uint256 quoteSnap) = snapOpenBalance(base, quote);
         settleFlat(recv, recv, base, baseFlow, quote, quoteFlow, BOTH_RESERVE_FLAGS);
         assertCloseMatches(base, baseSnap, baseFlow);
@@ -155,9 +155,9 @@ contract SettleLayer is AgentMask {
     }
 
     // We always pass in wbera as the base token here.
-    function settleInitFlowBera (address recv,
-                             address base, int128 baseFlow,
-                             address quote, int128 quoteFlow) internal {
+    function settleInitFlowBera(address recv, address base, int128 baseFlow, address quote, int128 quoteFlow)
+        internal
+    {
         (uint256 baseSnap, uint256 quoteSnap) = snapOpenBalance(base, quote);
         wrapBeraAndDeposit(baseFlow);
         transactToken(recv, recv, quoteFlow, quote, false);
@@ -168,9 +168,15 @@ contract SettleLayer is AgentMask {
     /* @notice Settles the collateral exchanged associated with the flow in a single 
      *         pair.
      * @dev    This must only be used when no other pairs settle in the transaction. */
-    function settleFlat (address debitor, address creditor,
-                         address base, int128 baseFlow,
-                         address quote, int128 quoteFlow, uint8 reserveFlags) private {
+    function settleFlat(
+        address debitor,
+        address creditor,
+        address base,
+        int128 baseFlow,
+        address quote,
+        int128 quoteFlow,
+        uint8 reserveFlags
+    ) private {
         if (nativeInReserveUseBase(reserveFlags)) {
             if (base == wbera) {
                 wrapBeraAndDeposit(baseFlow);
@@ -218,44 +224,42 @@ contract SettleLayer is AgentMask {
         if (base.isEtherNative()) {
             transactEther(debitor, creditor, baseFlow, useReservesBase(reserveFlags));
         } else {
-            transactToken(debitor, creditor, baseFlow, base,
-                          useReservesBase(reserveFlags));
+            transactToken(debitor, creditor, baseFlow, base, useReservesBase(reserveFlags));
         }
 
         // Because Ether native trapdoor is 0x0 address, and because base is always
         // smaller of the two addresses, native ETH will always appear on the base
         // side.
-        transactToken(debitor, creditor, quoteFlow, quote,
-                      useReservesQuote(reserveFlags));
+        transactToken(debitor, creditor, quoteFlow, quote, useReservesQuote(reserveFlags));
     }
 
-    function useReservesBase (uint8 reserveFlags) private pure returns (bool) {
+    function useReservesBase(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags & BASE_RESERVE_FLAG > 0;
     }
-    
-    function useReservesQuote (uint8 reserveFlags) private pure returns (bool) {
+
+    function useReservesQuote(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags & QUOTE_RESERVE_FLAG > 0;
     }
 
-    function nativeInReserveUseBase (uint8 reserveFlags) private pure returns (bool) {
+    function nativeInReserveUseBase(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags ^ RESERVE_FLAG_NATIVE_IN_BASE == 0;
     }
 
-    function nativeInReserveUseQuote (uint8 reserveFlags) private pure returns (bool) {
+    function nativeInReserveUseQuote(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags ^ RESERVE_FLAG_NATIVE_IN_QUOTE == 0;
     }
 
-    function nativeOutReserveFlagBase (uint8 reserveFlags) private pure returns (bool) {
+    function nativeOutReserveFlagBase(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags ^ RESERVE_FLAG_NATIVE_OUT_BASE == 0;
     }
 
-    function nativeOutReserveFlagQuote (uint8 reserveFlags) private pure returns (bool) {
+    function nativeOutReserveFlagQuote(uint8 reserveFlags) private pure returns (bool) {
         return reserveFlags ^ RESERVE_FLAG_NATIVE_OUT_QUOTE == 0;
     }
 
     uint8 constant NO_RESERVE_FLAGS = 0x0;
     uint8 constant BASE_RESERVE_FLAG = 0x1;
-    uint8 constant QUOTE_RESERVE_FLAG = 0x2;    
+    uint8 constant QUOTE_RESERVE_FLAG = 0x2;
     uint8 constant BOTH_RESERVE_FLAGS = 0x3;
     uint8 constant RESERVE_FLAG_NATIVE_IN_BASE = 0x4;
     uint8 constant RESERVE_FLAG_NATIVE_IN_QUOTE = 0x5;
@@ -264,28 +268,25 @@ contract SettleLayer is AgentMask {
 
     /* @notice Performs check to make sure the new balance matches the expected 
      * transfer amount. */
-    function assertCloseMatches (address token, uint256 open, int128 expected)
-        private view {
-        if (token != address(0)) {            
+    function assertCloseMatches(address token, uint256 open, int128 expected) private view {
+        if (token != address(0)) {
             uint256 close = IERC20Minimal(token).balanceOf(address(this));
-            require(close >= open && expected >= 0 &&
-                    close - open >= uint128(expected), "TD");
+            require(close >= open && expected >= 0 && close - open >= uint128(expected), "TD");
         }
     }
 
     /* @notice Snapshots the DEX contract's ERC20 token balance at call time. */
-    function snapOpenBalance (address base, address quote) private view returns
-        (uint256 openBase, uint256 openQuote) {
-        openBase = base == address(0) ? 0 :
-            IERC20Minimal(base).balanceOf(address(this));
+    function snapOpenBalance(address base, address quote) private view returns (uint256 openBase, uint256 openQuote) {
+        openBase = base == address(0) ? 0 : IERC20Minimal(base).balanceOf(address(this));
         openQuote = IERC20Minimal(quote).balanceOf(address(this));
     }
 
     /* @notice Given a pre-determined amount of flow, settles according to collateral 
      *         type and settlement specification. */
-    function pumpFlow (address debitor, address creditor, int128 flow,
-                       address token, bool useReserves)
-        private returns (int128) {
+    function pumpFlow(address debitor, address creditor, int128 flow, address token, bool useReserves)
+        private
+        returns (int128)
+    {
         if (token.isEtherNative()) {
             return flow;
         } else {
@@ -294,20 +295,20 @@ contract SettleLayer is AgentMask {
         }
     }
 
-    function querySurplus (address user, address token) internal view returns (uint128) {
+    function querySurplus(address user, address token) internal view returns (uint128) {
         bytes32 key = tokenKey(user, token);
         return userBals_[key].surplusCollateral_;
     }
 
     /* @notice Returns true if the flow represents a debit owed from the user to the
      *         exchange. */
-    function isDebit (int128 flow) private pure returns (bool) {
+    function isDebit(int128 flow) private pure returns (bool) {
         return flow > 0;
     }
-    
+
     /* @notice Returns true if the flow represents a credit owed from the exchange to the
      *         user. */
-    function isCredit (int128 flow) private pure returns (bool) {
+    function isCredit(int128 flow) private pure returns (bool) {
         return flow < 0;
     }
 
@@ -321,9 +322,7 @@ contract SettleLayer is AgentMask {
      *             user. Positive debit to the exchange.
      * @para useReserves If true, any settlement is first done against the user's surplus
      *                   collateral account at the exchange rather than sending Ether. */
-    function transactEther (address debitor, address creditor,
-                            int128 flow, bool useReserves)
-        private {
+    function transactEther(address debitor, address creditor, int128 flow, bool useReserves) private {
         // This is the only point in a standard transaction where msg.value is accessed.
         uint128 recvEth = popMsgVal();
         if (flow != 0) {
@@ -344,8 +343,7 @@ contract SettleLayer is AgentMask {
      * @param token The address of the token's ERC20 tracker.
      * @para useReserves If true, any settlement is first done against the user's surplus
      *                   collateral account at the exchange. */
-    function transactToken (address debitor, address creditor, int128 flow,
-                           address token, bool useReserves) private {
+    function transactToken(address debitor, address creditor, int128 flow, address token, bool useReserves) private {
         require(!token.isEtherNative());
         // Since this is a token settlement, we defer booking any native ETH in msg.value
         uint128 bookedEth = 0;
@@ -353,20 +351,24 @@ contract SettleLayer is AgentMask {
     }
 
     /* @notice Handles the single sided settlement of a token or native ETH flow. */
-    function transactFlow (address debitor, address creditor,
-                           int128 flow, address token,
-                           uint128 bookedEth, bool useReserves) private {
+    function transactFlow(
+        address debitor,
+        address creditor,
+        int128 flow,
+        address token,
+        uint128 bookedEth,
+        bool useReserves
+    ) private {
         if (isDebit(flow)) {
             debitUser(debitor, uint128(flow), token, bookedEth, useReserves);
         } else if (isCredit(flow)) {
             creditUser(creditor, uint128(-flow), token, bookedEth, useReserves);
-        }           
+        }
     }
 
     /* @notice Collects a collateral debit from the user depending on the asset type
      *         and the settlement specifcation. */
-    function debitUser (address recv, uint128 value, address token,
-                        uint128 bookedEth, bool useReserves) private {
+    function debitUser(address recv, uint128 value, address token, uint128 bookedEth, bool useReserves) private {
         if (useReserves) {
             uint128 remainder = debitSurplus(recv, value, token);
             debitRemainder(recv, remainder, token, bookedEth);
@@ -377,8 +379,7 @@ contract SettleLayer is AgentMask {
 
     /* @notice Collects the remaining debit (if any) after the user's surplus collateral
      *         balance has been exhausted. */
-    function debitRemainder (address recv, uint128 remainder, address token,
-                             uint128 bookedEth) private {
+    function debitRemainder(address recv, uint128 remainder, address token, uint128 bookedEth) private {
         if (remainder > 0) {
             debitTransfer(recv, remainder, token, bookedEth);
         } else if (token.isEtherNative()) {
@@ -388,8 +389,7 @@ contract SettleLayer is AgentMask {
 
     /* @notice Pays out a collateral credit to the user depending on asset type and 
      *         settlement specification. */
-    function creditUser (address recv, uint128 value, address token,
-                         uint128 bookedEth, bool useReserves) private {
+    function creditUser(address recv, uint128 value, address token, uint128 bookedEth, bool useReserves) private {
         if (useReserves) {
             creditSurplus(recv, value, token);
             creditRemainder(recv, token, bookedEth);
@@ -400,15 +400,14 @@ contract SettleLayer is AgentMask {
 
     /* @notice Handles any refund necessary after a credit has been paid to the user's 
      *         surplus collateral balance. */
-    function creditRemainder (address recv, address token, uint128 bookedEth) private {
+    function creditRemainder(address recv, address token, uint128 bookedEth) private {
         if (token.isEtherNative()) {
             refundEther(recv, bookedEth);
         }
     }
 
     /* @notice Settles a credit with an external transfer to user. */
-    function creditTransfer (address recv, uint128 value, address token,
-                             uint128 bookedEth) internal {
+    function creditTransfer(address recv, uint128 value, address token, uint128 bookedEth) internal {
         if (token.isEtherNative()) {
             payEther(recv, value, bookedEth);
         } else {
@@ -417,8 +416,7 @@ contract SettleLayer is AgentMask {
     }
 
     /* @notice Settles a debit with an external transfer from user. */
-    function debitTransfer (address recv, uint128 value, address token,
-                            uint128 bookedEth) internal {
+    function debitTransfer(address recv, uint128 value, address token, uint128 bookedEth) internal {
         if (token.isEtherNative()) {
             collectEther(recv, value, bookedEth);
         } else {
@@ -428,7 +426,7 @@ contract SettleLayer is AgentMask {
 
     /* @notice Pays a native Ethereum credit to the user (and refunds any overpay in
      *         the transction, since by definition they have no debit.) */
-    function payEther (address recv, uint128 value, uint128 overpay) private {
+    function payEther(address recv, uint128 value, uint128 overpay) private {
         TransferHelper.safeEtherSend(recv, value + overpay);
     }
 
@@ -442,14 +440,14 @@ contract SettleLayer is AgentMask {
      *              this threshold.
      * @param paidEth The amount of Ether paid by the user in this transaction (usually
      *                msg.value) */
-    function collectEther (address recv, uint128 value, uint128 paidEth) private {
+    function collectEther(address recv, uint128 value, uint128 paidEth) private {
         require(paidEth >= value, "EC");
         uint128 overpay = paidEth - value;
         refundEther(recv, overpay);
     }
 
     /* @notice Refunds any overpaid native Eth (if any) */
-    function refundEther (address recv, uint128 overpay) private {
+    function refundEther(address recv, uint128 overpay) private {
         if (overpay > 0) {
             TransferHelper.safeEtherSend(recv, overpay);
         }
@@ -463,13 +461,13 @@ contract SettleLayer is AgentMask {
      * @param recv The address of the debtor being collected from.
      * @param value The total amount of tokens being collected.
      * @param token The address of the ERC20 token tracker. */
-    function collectToken (address recv, uint128 value, address token) private {
+    function collectToken(address recv, uint128 value, address token) private {
         TransferHelper.safeTransferFrom(token, recv, address(this), value);
     }
 
     /* @notice Credits a user's surplus collateral account at the exchange (instead of
      *         directly sending the tokens to their address) */
-    function creditSurplus (address recv, uint128 value, address token) private {
+    function creditSurplus(address recv, uint128 value, address token) private {
         bytes32 key = tokenKey(recv, token);
         userBals_[key].surplusCollateral_ += value;
     }
@@ -478,12 +476,11 @@ contract SettleLayer is AgentMask {
      *         balance at the exchange.
      * @return remainder The amount of the debit that cannot be satisfied by surplus
      *                   collateral alone (0 othersize). */
-    function debitSurplus (address recv, uint128 value, address token) private
-        returns (uint128 remainder) {
+    function debitSurplus(address recv, uint128 value, address token) private returns (uint128 remainder) {
         bytes32 key = tokenKey(recv, token);
         UserBalance storage bal = userBals_[key];
         uint128 balance = bal.surplusCollateral_;
-        
+
         if (balance > value) {
             bal.surplusCollateral_ -= value;
         } else {
@@ -493,16 +490,14 @@ contract SettleLayer is AgentMask {
     }
 
     /* @notice Returns true if the net settled flow is equal or better to the user's
-     *         minimum expected amount. (Otherwise upstream should revert the tx.) */     
-    function passesLimit (int128 flow, int128 limitQty)
-        private pure returns (bool) {
+     *         minimum expected amount. (Otherwise upstream should revert the tx.) */
+    function passesLimit(int128 flow, int128 limitQty) private pure returns (bool) {
         return flow <= limitQty;
     }
 
     /* @notice If true, determines that the settlement flow should be ignored because
      *         it's economically meaningless and not worth transacting. */
-    function moreThanDust (int128 flow, uint128 dustThresh)
-        private pure returns (bool) {
+    function moreThanDust(int128 flow, uint128 dustThresh) private pure returns (bool) {
         if (isDebit(flow)) {
             return true;
         } else {
@@ -510,20 +505,16 @@ contract SettleLayer is AgentMask {
         }
     }
 
-    function unwrapWberaAndSend (address recv, int128 value) internal {
-        (bool status,) = wbera.call(
-            abi.encodeWithSignature("withdraw(uint256)", uint256(abs(value)))
-        );
+    function unwrapWberaAndSend(address recv, int128 value) internal {
+        (bool status,) = wbera.call(abi.encodeWithSignature("withdraw(uint256)", uint256(abs(value))));
         require(status, "unwrap call failed");
         TransferHelper.safeEtherSend(recv, abs(value));
     }
 
-    function wrapBeraAndDeposit (int128 value) internal {
+    function wrapBeraAndDeposit(int128 value) internal {
         uint128 msgValue = popMsgVal();
         require(msgValue >= abs(value), "TF4");
-        (bool status,) = wbera.call{value: uint256(msgValue)}(
-            abi.encodeWithSignature("deposit()")
-        );
+        (bool status,) = wbera.call{value: uint256(msgValue)}(abi.encodeWithSignature("deposit()"));
         require(status, "wrap call failed");
     }
 

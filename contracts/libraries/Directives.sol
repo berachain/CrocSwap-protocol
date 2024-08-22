@@ -181,5 +181,4 @@ library Directives {
         SettlementChannel open_;
         HopDirective[] hops_;
     }
-
 }

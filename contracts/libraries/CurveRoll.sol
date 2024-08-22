@@ -3,11 +3,11 @@
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './SafeCast.sol';
-import './FixedPoint.sol';
-import './LiquidityMath.sol';
-import './CompoundMath.sol';
-import './CurveMath.sol';
+import "./SafeCast.sol";
+import "./FixedPoint.sol";
+import "./LiquidityMath.sol";
+import "./CompoundMath.sol";
+import "./CurveMath.sol";
 
 /* @title Curve roll library
  * @notice Provides functionality for rolling swap flows onto a constant-product
@@ -50,15 +50,14 @@ library CurveRoll {
      * @return quoteFlow - The signed flow of the quote-side tokens.
      * @return qtyLeft - The amount of swapQty remaining after the flow from this leg is
      *                   processed. */
-    function rollFlow (CurveMath.CurveState memory curve, uint128 flow,
-                       bool inBaseQty, bool isBuy, uint128 swapQty)
-        internal pure returns (int128, int128, uint128) {
-        (uint128 counterFlow, uint128 nextPrice) = deriveImpact
-            (curve, flow, inBaseQty, isBuy);
-        (int128 paidFlow, int128 paidCounter) = signFlow
-            (flow, counterFlow, inBaseQty, isBuy);
-        return setCurvePos(curve, inBaseQty, isBuy, swapQty,
-                           nextPrice, paidFlow, paidCounter);
+    function rollFlow(CurveMath.CurveState memory curve, uint128 flow, bool inBaseQty, bool isBuy, uint128 swapQty)
+        internal
+        pure
+        returns (int128, int128, uint128)
+    {
+        (uint128 counterFlow, uint128 nextPrice) = deriveImpact(curve, flow, inBaseQty, isBuy);
+        (int128 paidFlow, int128 paidCounter) = signFlow(flow, counterFlow, inBaseQty, isBuy);
+        return setCurvePos(curve, inBaseQty, isBuy, swapQty, nextPrice, paidFlow, paidCounter);
     }
 
     /* @notice Moves a curve to a pre-determined price target, and calculates the flows
@@ -91,14 +90,14 @@ library CurveRoll {
      * @return quoteFlow - The signed flow of the quote-side tokens.
      * @return qtyLeft - The amount of swapQty remaining after the flow from this leg is
      *                   processed. */
-    function rollPrice (CurveMath.CurveState memory curve, uint128 price,
-                        bool inBaseQty, bool isBuy, uint128 swapQty)
-        internal pure returns (int128, int128, uint128)  {
+    function rollPrice(CurveMath.CurveState memory curve, uint128 price, bool inBaseQty, bool isBuy, uint128 swapQty)
+        internal
+        pure
+        returns (int128, int128, uint128)
+    {
         (uint128 flow, uint128 counterFlow) = deriveDemand(curve, price, inBaseQty);
-        (int128 paidFlow, int128 paidCounter) = signFixed
-            (flow, counterFlow, inBaseQty, isBuy);
-        return setCurvePos(curve, inBaseQty, isBuy, swapQty, price,
-                           paidFlow, paidCounter);
+        (int128 paidFlow, int128 paidCounter) = signFixed(flow, counterFlow, inBaseQty, isBuy);
+        return setCurvePos(curve, inBaseQty, isBuy, swapQty, price, paidFlow, paidCounter);
     }
 
     /* @notice Called when a curve has reached its a  bump barrier. Because the 
@@ -107,13 +106,14 @@ library CurveRoll {
      *   below this price, and we need the price to reflect the correct tick. So we burn
      *   an economically meaningless amount of collateral token wei to shift the price 
      *   down by exactly one unit of precision into the next tick. */
-    function shaveAtBump (CurveMath.CurveState memory curve,
-                          bool inBaseQty, bool isBuy, uint128 swapLeft)
-        pure internal returns (int128, int128, uint128) {
-        uint128 burnDown = CurveMath.priceToTokenPrecision
-            (curve.activeLiquidity(), curve.priceRoot_, inBaseQty);
+    function shaveAtBump(CurveMath.CurveState memory curve, bool inBaseQty, bool isBuy, uint128 swapLeft)
+        internal
+        pure
+        returns (int128, int128, uint128)
+    {
+        uint128 burnDown = CurveMath.priceToTokenPrecision(curve.activeLiquidity(), curve.priceRoot_, inBaseQty);
         require(swapLeft > burnDown, "BD");
-        
+
         if (isBuy) {
             return setShaveUp(curve, inBaseQty, burnDown);
         } else {
@@ -140,62 +140,71 @@ library CurveRoll {
      *                  move the price one unit.
      * @return paidQuote The additional amount of quote tokens the swapper should pay to the curve.
      * @return burnSwap  The amount of tokens to remove from the remaining fixed leg of the swap quantity. */
-    function setShaveDown (CurveMath.CurveState memory curve, bool inBaseQty,
-                           uint128 burnDown) private pure
-        returns (int128 paidBase, int128 paidQuote, uint128 burnSwap) {
+    function setShaveDown(CurveMath.CurveState memory curve, bool inBaseQty, uint128 burnDown)
+        private
+        pure
+        returns (int128 paidBase, int128 paidQuote, uint128 burnSwap)
+    {
         unchecked {
-        if (curve.priceRoot_ > TickMath.MIN_SQRT_RATIO) {
-            curve.priceRoot_ -= 1; // MIN_SQRT is well above uint128 0
-        }
+            if (curve.priceRoot_ > TickMath.MIN_SQRT_RATIO) {
+                curve.priceRoot_ -= 1; // MIN_SQRT is well above uint128 0
+            }
 
-        // When moving the price down at constant liquidity, no additional base tokens are required for
-        // collateralization
-        paidBase = 0;
+            // When moving the price down at constant liquidity, no additional base tokens are required for
+            // collateralization
+            paidBase = 0;
 
-        // When moving the price down at constant liquidity, the swapper must pay a small amount of additional
-        // quote tokens to keep the curve over-collateralized.
-        paidQuote = burnDown.toInt128Sign();
-        
-        // If the fixed swap leg is in base tokens, then this has zero impact, if the swap leg is in quote
-        // tokens then we have to adjust the deduct the quote tokens the user paid above from the remaining swap
-        // quantity
-        burnSwap = inBaseQty ? 0 : burnDown;
+            // When moving the price down at constant liquidity, the swapper must pay a small amount of additional
+            // quote tokens to keep the curve over-collateralized.
+            paidQuote = burnDown.toInt128Sign();
+
+            // If the fixed swap leg is in base tokens, then this has zero impact, if the swap leg is in quote
+            // tokens then we have to adjust the deduct the quote tokens the user paid above from the remaining swap
+            // quantity
+            burnSwap = inBaseQty ? 0 : burnDown;
         }
     }
 
     /* @notice After calculating a burn down amount of collateral, roll the curve over
      *         into the next tick above the current tick. */
-    function setShaveUp (CurveMath.CurveState memory curve, bool inBaseQty,
-                         uint128 burnDown) private pure
-        returns (int128 paidBase, int128 paidQuote, uint128 burnSwap) {
+    function setShaveUp(CurveMath.CurveState memory curve, bool inBaseQty, uint128 burnDown)
+        private
+        pure
+        returns (int128 paidBase, int128 paidQuote, uint128 burnSwap)
+    {
         unchecked {
-        if (curve.priceRoot_ < TickMath.MAX_SQRT_RATIO - 1) {
-            curve.priceRoot_ += 1; // MAX_SQRT is well below uint128.max
-        }
-        // When moving the price up at constant liquidity, no additional quote tokens are required for
-        // collateralization
-        paidQuote = 0;
+            if (curve.priceRoot_ < TickMath.MAX_SQRT_RATIO - 1) {
+                curve.priceRoot_ += 1; // MAX_SQRT is well below uint128.max
+            }
+            // When moving the price up at constant liquidity, no additional quote tokens are required for
+            // collateralization
+            paidQuote = 0;
 
-        // When moving the price up at constant liquidity, the swapper must pay a small amount of additional
-        // base tokens to keep the curve over-collateralized.
-        paidBase = burnDown.toInt128Sign();
-        
-        // If the fixed swap leg is in quote tokens, then this has zero impact, if the swap leg is in base
-        // tokens then we have to adjust the deduct the quote tokens the user paid above from the remaining swap
-        // quantity
-        burnSwap = inBaseQty ? burnDown : 0;
+            // When moving the price up at constant liquidity, the swapper must pay a small amount of additional
+            // base tokens to keep the curve over-collateralized.
+            paidBase = burnDown.toInt128Sign();
+
+            // If the fixed swap leg is in quote tokens, then this has zero impact, if the swap leg is in base
+            // tokens then we have to adjust the deduct the quote tokens the user paid above from the remaining swap
+            // quantity
+            burnSwap = inBaseQty ? burnDown : 0;
         }
     }
 
     /* @notice After previously calculating the denominated and counter-denominated flows,
      *         this function assigns those to the correct side of the pair and decrements
      *         the total swap quantity by the amount spent. */
-    function setCurvePos (CurveMath.CurveState memory curve,
-                          bool inBaseQty, bool isBuy, uint128 swapQty,
-                          uint128 price, int128 paidFlow, int128 paidCounter)
-        private pure returns (int128 paidBase, int128 paidQuote, uint128 qtyLeft) {
+    function setCurvePos(
+        CurveMath.CurveState memory curve,
+        bool inBaseQty,
+        bool isBuy,
+        uint128 swapQty,
+        uint128 price,
+        int128 paidFlow,
+        int128 paidCounter
+    ) private pure returns (int128 paidBase, int128 paidQuote, uint128 qtyLeft) {
         uint128 spent = flowToSpent(paidFlow, inBaseQty, isBuy);
-        
+
         if (spent >= swapQty) {
             qtyLeft = 0;
         } else {
@@ -203,15 +212,14 @@ library CurveRoll {
         }
 
         paidBase = (inBaseQty ? paidFlow : paidCounter);
-        paidQuote = (inBaseQty ? paidCounter : paidFlow); 
+        paidQuote = (inBaseQty ? paidCounter : paidFlow);
         curve.priceRoot_ = price;
     }
 
     /* @notice Convert a signed paid flow to a decrement to apply to swap qty left. */
-    function flowToSpent (int128 paidFlow, bool inBaseQty, bool isBuy)
-        private pure returns (uint128) {
+    function flowToSpent(int128 paidFlow, bool inBaseQty, bool isBuy) private pure returns (uint128) {
         int128 spent = (inBaseQty == isBuy) ? paidFlow : -paidFlow;
-        if (spent < 0) { return 0; }
+        if (spent < 0) return 0;
         return uint128(spent);
     }
 
@@ -220,9 +228,11 @@ library CurveRoll {
      * @dev    Both sides of the flow are rounded down at up to 2 wei of precision loss
      *         (see CurveMath.sol). The results should not be used directly without 
      *         buffering the counterflow in the direction of collateral support. */
-    function deriveDemand (CurveMath.CurveState memory curve, uint128 price,
-                           bool inBaseQty) private pure
-        returns (uint128 flow, uint128 counterFlow) {
+    function deriveDemand(CurveMath.CurveState memory curve, uint128 price, bool inBaseQty)
+        private
+        pure
+        returns (uint128 flow, uint128 counterFlow)
+    {
         uint128 liq = curve.activeLiquidity();
         uint128 baseFlow = liq.deltaBase(curve.priceRoot_, price);
         uint128 quoteFlow = liq.deltaQuote(curve.priceRoot_, price);
@@ -230,7 +240,6 @@ library CurveRoll {
             (flow, counterFlow) = (baseFlow, quoteFlow);
         } else {
             (flow, counterFlow) = (quoteFlow, baseFlow);
-            
         }
     }
 
@@ -258,9 +267,11 @@ library CurveRoll {
      * @return nextPrice   The ending price of the curve assuming the full flow is 
      *                     processed. Note that this value is *not* written into the 
      *                     curve struct. */
-    function deriveImpact (CurveMath.CurveState memory curve, uint128 flow,
-                           bool inBaseQty, bool isBuy) internal pure
-        returns (uint128 counterFlow, uint128 nextPrice) {
+    function deriveImpact(CurveMath.CurveState memory curve, uint128 flow, bool inBaseQty, bool isBuy)
+        internal
+        pure
+        returns (uint128 counterFlow, uint128 nextPrice)
+    {
         uint128 liq = curve.activeLiquidity();
         nextPrice = deriveFlowPrice(curve.priceRoot_, liq, flow, inBaseQty, isBuy);
 
@@ -268,9 +279,8 @@ library CurveRoll {
          * collateralization only cares about the price, not the contravening flow.
          * Therefore we always compute based on the final, rounded price, not from the
          * original fixed flow. */
-        counterFlow = !inBaseQty ?
-            liq.deltaBase(curve.priceRoot_, nextPrice) :
-            liq.deltaQuote(curve.priceRoot_, nextPrice);
+        counterFlow =
+            !inBaseQty ? liq.deltaBase(curve.priceRoot_, nextPrice) : liq.deltaQuote(curve.priceRoot_, nextPrice);
     }
 
     /* @dev The end price is always rounded to the inside of the flow token:
@@ -286,15 +296,16 @@ library CurveRoll {
      *   fixed side. Because of the arbitrary roudning, it's critical that the counter-
      *   flow is computed using the exact price returned by this function, and not 
      *   independently. */
-    function deriveFlowPrice (uint128 price, uint128 liq,
-                              uint128 flow, bool inBaseQty, bool isBuy)
-        private pure returns (uint128) {
-        uint128 curvePrice = inBaseQty ?
-            calcBaseFlowPrice(price, liq, flow, isBuy) :
-            calcQuoteFlowPrice(price, liq, flow, isBuy);
+    function deriveFlowPrice(uint128 price, uint128 liq, uint128 flow, bool inBaseQty, bool isBuy)
+        private
+        pure
+        returns (uint128)
+    {
+        uint128 curvePrice =
+            inBaseQty ? calcBaseFlowPrice(price, liq, flow, isBuy) : calcQuoteFlowPrice(price, liq, flow, isBuy);
 
-        if (curvePrice >= TickMath.MAX_SQRT_RATIO) { return TickMath.MAX_SQRT_RATIO - 1;}
-        if (curvePrice < TickMath.MIN_SQRT_RATIO) { return TickMath.MIN_SQRT_RATIO; }
+        if (curvePrice >= TickMath.MAX_SQRT_RATIO) return TickMath.MAX_SQRT_RATIO - 1;
+        if (curvePrice < TickMath.MIN_SQRT_RATIO) return TickMath.MIN_SQRT_RATIO;
         return curvePrice;
     }
 
@@ -307,14 +318,13 @@ library CurveRoll {
      * This seems counterintuitive when base token is the output, but even then moving 
      * the price further down will increase the quote token input and over-collateralize
      * the base token. The max loss of precision is 1 unit of fixed-point price. */
-    function calcBaseFlowPrice (uint128 price, uint128 liq, uint128 flow, bool isBuy)
-        private pure returns (uint128) {
-        if (liq == 0) { return type(uint128).max; }
-        
+    function calcBaseFlowPrice(uint128 price, uint128 liq, uint128 flow, bool isBuy) private pure returns (uint128) {
+        if (liq == 0) return type(uint128).max;
+
         uint192 deltaCalc = FixedPoint.divQ64(flow, liq);
-        if (deltaCalc > type(uint128).max) { return type(uint128).max; }
+        if (deltaCalc > type(uint128).max) return type(uint128).max;
         uint128 priceDelta = uint128(deltaCalc);
-        
+
         /* For a fixed amount of base flow tokens, the resulting price should be conservatively
          * rounded down. Since Price = [Base Reserves]/[Quote Reserves], rounding price down
          * is equivalent to rounding the curve to be over collateralized relative to the actual
@@ -323,9 +333,8 @@ library CurveRoll {
             // Since priceDelta is rounded down to the lower unit, this equation rounds down the
             // the price by up to 1 unit
             return price + priceDelta;
-
         } else {
-            if (priceDelta >= price) { return 0; }
+            if (priceDelta >= price) return 0;
             // priceDelta is rounded down by a maximum of 1 unit, so adding 1 to the subtracted
             // priceDelta value rounds price down by up to 1 unit.
             return price - (priceDelta + 1);
@@ -339,16 +348,14 @@ library CurveRoll {
      * Calculating flow price for quote flow is more complex because the flow delta 
      * applies to the inverse of the price. So when calculating the inverse, we make 
      * sure to round in the direction that rounds up the final price. */
-    function calcQuoteFlowPrice (uint128 price, uint128 liq, uint128 flow, bool isBuy)
-        private pure returns (uint128) {
+    function calcQuoteFlowPrice(uint128 price, uint128 liq, uint128 flow, bool isBuy) private pure returns (uint128) {
         // Since this is a term in the quotient rounding down, rounds up the final price
         uint128 invPrice = FixedPoint.recipQ64(price);
         // This is also a quotient term so we use this function's round down logic
         uint128 invNext = calcBaseFlowPrice(invPrice, liq, flow, !isBuy);
-        if (invNext == 0) { return TickMath.MAX_SQRT_RATIO; }
+        if (invNext == 0) return TickMath.MAX_SQRT_RATIO;
         return FixedPoint.recipQ64(invNext) + 1;
     }
-
 
     // Max round precision loss on token flow is 2 wei, but a 4 wei cushion provides
     // extra margin and is economically meaningless.
@@ -358,19 +365,23 @@ library CurveRoll {
      *   flow magnitudes that were previously computed for a fixed flow swap. Positive 
      *   sign implies the flow is being received by the pool, negative that it's being 
      *   received by the user. */
-    function signFlow (uint128 flowMagn, uint128 counterMagn,
-                       bool inBaseQty, bool isBuy)
-        private pure returns (int128 flow, int128 counter) {
+    function signFlow(uint128 flowMagn, uint128 counterMagn, bool inBaseQty, bool isBuy)
+        private
+        pure
+        returns (int128 flow, int128 counter)
+    {
         (flow, counter) = signMagn(flowMagn, counterMagn, inBaseQty, isBuy);
         // Conservatively round directional counterflow in the direction of the pool's
-        // collateral. Don't round swap flow because that's a fixed target. 
+        // collateral. Don't round swap flow because that's a fixed target.
         counter = counter + ROUND_PRECISION_WEI;
     }
 
     /* @notice Same as signFlow, but used for the flow from a price target swap leg. */
-    function signFixed (uint128 flowMagn, uint128 counterMagn,
-                        bool inBaseQty, bool isBuy)
-        private pure returns (int128 flow, int128 counter) {
+    function signFixed(uint128 flowMagn, uint128 counterMagn, bool inBaseQty, bool isBuy)
+        private
+        pure
+        returns (int128 flow, int128 counter)
+    {
         (flow, counter) = signMagn(flowMagn, counterMagn, inBaseQty, isBuy);
         // In a price target, bothsides of the flow are floating, and have to be rounded
         // in pool's favor to conservatively accomodate the price precision.
@@ -380,16 +391,15 @@ library CurveRoll {
 
     /* @notice Takes an unsigned flow magntiude and correctly signs it based on the
      *         directional and denomination of the flows. */
-    function signMagn (uint128 flowMagn, uint128 counterMagn,
-                       bool inBaseQty, bool isBuy)
-        private pure returns (int128 flow, int128 counter) {
-        
+    function signMagn(uint128 flowMagn, uint128 counterMagn, bool inBaseQty, bool isBuy)
+        private
+        pure
+        returns (int128 flow, int128 counter)
+    {
         if (inBaseQty == isBuy) {
             (flow, counter) = (flowMagn.toInt128Sign(), -counterMagn.toInt128Sign());
         } else {
             (flow, counter) = (-flowMagn.toInt128Sign(), counterMagn.toInt128Sign());
         }
-        
-        
     }
 }

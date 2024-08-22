@@ -36,16 +36,17 @@ contract BeraCrocMultiSwap {
      * @return predictedQty The predicted amount to be received from the multiswap if
      *         there is no price impact.
       */
-    function previewMultiSwap(
-        SwapHelpers.SwapStep[] calldata _steps,
-        uint128 _amount
-    ) external view returns (uint128 out, uint256 predictedQty) {
+    function previewMultiSwap(SwapHelpers.SwapStep[] calldata _steps, uint128 _amount)
+        external
+        view
+        returns (uint128 out, uint256 predictedQty)
+    {
         require(_steps.length != 0, "No steps provided");
         SwapHelpers.SwapStep calldata initStep = _steps[0];
         uint128 quantity = _amount;
         address nextAsset = initStep.isBuy ? initStep.base : initStep.quote;
         predictedQty = _amount;
-        for (uint256 i; i < _steps.length; ) {
+        for (uint256 i; i < _steps.length;) {
             SwapHelpers.SwapStep calldata step = _steps[i];
             // the square root price of quote in terms of base
             uint256 sqrtPriceX64 = crocQuery.queryPrice(step.base, step.quote, step.poolIdx);
@@ -54,8 +55,9 @@ contract BeraCrocMultiSwap {
                 // We use the max uint128 as the limit price to ensure the swap executes
                 // Given that we have full range liquidity, there is no min limit price
                 // Slippage can be controlled by the minOut parameter
-                (, int128 quoteFlow,) = crocImpact.calcImpact(step.base, step.quote, step.poolIdx,
-                    true, true, quantity, 0, TickMath.MAX_SQRT_RATIO - 1);
+                (, int128 quoteFlow,) = crocImpact.calcImpact(
+                    step.base, step.quote, step.poolIdx, true, true, quantity, 0, TickMath.MAX_SQRT_RATIO - 1
+                );
                 // Received amount is always negative
                 quantity = uint128(-quoteFlow);
                 predictedQty = predictedQty.mulDiv(FixedPoint.Q128, sqrtPriceX64 * sqrtPriceX64);
@@ -63,14 +65,17 @@ contract BeraCrocMultiSwap {
             } else {
                 require(nextAsset == step.quote, "Invalid swap sequence");
                 // Limit price is 0 here for the inverse reason above
-                (int128 baseFlow,,) = crocImpact.calcImpact(step.base, step.quote, step.poolIdx,
-                    false, false, quantity, 0, TickMath.MIN_SQRT_RATIO);
+                (int128 baseFlow,,) = crocImpact.calcImpact(
+                    step.base, step.quote, step.poolIdx, false, false, quantity, 0, TickMath.MIN_SQRT_RATIO
+                );
                 // Received amount is always negative
                 quantity = uint128(-baseFlow);
                 predictedQty = predictedQty.mulDiv(sqrtPriceX64 * sqrtPriceX64, FixedPoint.Q128);
                 nextAsset = step.base;
             }
-            unchecked { i++; }
+            unchecked {
+                i++;
+            }
         }
         return (quantity, predictedQty);
     }
@@ -86,11 +91,11 @@ contract BeraCrocMultiSwap {
      * @return out The token base and quote token flows associated with this swap action. 
      *         (Negative indicates a credit paid to the user, positive a debit collected
      *         from the user) */
-    function multiSwap (
-        SwapHelpers.SwapStep[] memory _steps,
-        uint128 _amount,
-        uint128 _minOut
-    ) public payable returns (uint128 out) {
+    function multiSwap(SwapHelpers.SwapStep[] memory _steps, uint128 _amount, uint128 _minOut)
+        public
+        payable
+        returns (uint128 out)
+    {
         require(_steps.length != 0, "No steps provided");
 
         // Variables for the series of steps
@@ -102,16 +107,18 @@ contract BeraCrocMultiSwap {
         if (nextAsset != address(0)) {
             IERC20Minimal(nextAsset).transferFrom(msg.sender, address(this), uint256(quantity));
         }
-        for (uint256 i=0; i < _steps.length; ) {
+        for (uint256 i = 0; i < _steps.length;) {
             SwapHelpers.SwapStep memory step = _steps[i];
             require(nextAsset == (step.isBuy ? step.base : step.quote), "Invalid swap sequence");
             // Perform the swap step
             if (step.isBuy) {
-                (quantity, nextAsset) = _performBuy(step, quantity, (i == _steps.length-1) ? _minOut : 0);
+                (quantity, nextAsset) = _performBuy(step, quantity, (i == _steps.length - 1) ? _minOut : 0);
             } else {
-                (quantity, nextAsset) = _performSell(step, quantity, (i == _steps.length-1) ? _minOut : 0);
+                (quantity, nextAsset) = _performSell(step, quantity, (i == _steps.length - 1) ? _minOut : 0);
             }
-            unchecked { i++; }
+            unchecked {
+                i++;
+            }
         }
         if (nextAsset != address(0)) {
             IERC20Minimal(nextAsset).transfer(msg.sender, uint256(quantity));
@@ -123,11 +130,10 @@ contract BeraCrocMultiSwap {
         return quantity;
     }
 
-    function _performBuy(
-        SwapHelpers.SwapStep memory _step,
-        uint128 _amount,
-        uint128 _minOut
-    ) internal returns (uint128 out, address nextAsset) {
+    function _performBuy(SwapHelpers.SwapStep memory _step, uint128 _amount, uint128 _minOut)
+        internal
+        returns (uint128 out, address nextAsset)
+    {
         uint256 beraQuantity = 0;
         if (_step.base != address(0)) {
             IERC20Minimal(_step.base).approve(address(crocSwapDex), uint256(_amount));
@@ -137,16 +143,16 @@ contract BeraCrocMultiSwap {
         // We use the max uint128 as the limit price to ensure the swap executes
         // Given that we have full range liquidity, there is no min limit price
         // Slippage can be controlled by the minOut parameter
-        (, int128 quoteFlow) = crocSwapDex.swap{value: beraQuantity}(_step.base, _step.quote,
-                            _step.poolIdx, true, true, _amount, 0, TickMath.MAX_SQRT_RATIO-1, _minOut, 0x1);
+        (, int128 quoteFlow) = crocSwapDex.swap{value: beraQuantity}(
+            _step.base, _step.quote, _step.poolIdx, true, true, _amount, 0, TickMath.MAX_SQRT_RATIO - 1, _minOut, 0x1
+        );
         return (uint128(-quoteFlow), _step.quote);
     }
 
-    function _performSell(
-        SwapHelpers.SwapStep memory _step,
-        uint128 _amount,
-        uint128 _minOut
-    ) internal returns (uint128 out, address nextAsset) {
+    function _performSell(SwapHelpers.SwapStep memory _step, uint128 _amount, uint128 _minOut)
+        internal
+        returns (uint128 out, address nextAsset)
+    {
         uint256 beraQuantity = 0;
         if (_step.quote != address(0)) {
             IERC20Minimal(_step.quote).approve(address(crocSwapDex), uint256(_amount));
@@ -154,8 +160,9 @@ contract BeraCrocMultiSwap {
             beraQuantity = uint256(_amount);
         }
         // Limit price is 0 here for the inverse reason above
-        (int128 baseFlow,) = crocSwapDex.swap{value: beraQuantity}(_step.base, _step.quote,
-                        _step.poolIdx, false, false, _amount, 0, TickMath.MIN_SQRT_RATIO, _minOut, 0x2);
+        (int128 baseFlow,) = crocSwapDex.swap{value: beraQuantity}(
+            _step.base, _step.quote, _step.poolIdx, false, false, _amount, 0, TickMath.MIN_SQRT_RATIO, _minOut, 0x2
+        );
         return (uint128(-baseFlow), _step.base);
     }
 
@@ -171,7 +178,7 @@ contract BeraCrocMultiSwap {
      * @param value The amount of ETH to transfer. 
     */
     function _safeTransferETH(address to, uint256 value) internal {
-        (bool success, ) = to.call{value: value}(new bytes(0));
-        require(success, 'STE');
+        (bool success,) = to.call{value: value}(new bytes(0));
+        require(success, "STE");
     }
 }

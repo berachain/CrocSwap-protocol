@@ -2,23 +2,23 @@
 
 pragma solidity 0.8.19;
 
-import './libraries/Directives.sol';
-import './libraries/Encoding.sol';
-import './libraries/TokenFlow.sol';
-import './libraries/PriceGrid.sol';
-import './mixins/MarketSequencer.sol';
-import './mixins/SettleLayer.sol';
-import './mixins/PoolRegistry.sol';
-import './interfaces/ICrocMinion.sol';
-import './callpaths/ColdPath.sol';
-import './callpaths/BootPath.sol';
-import './callpaths/WarmPath.sol';
-import './callpaths/HotPath.sol';
-import './callpaths/LongPath.sol';
-import './callpaths/KnockoutPath.sol';
-import './callpaths/MicroPaths.sol';
-import './callpaths/SafeModePath.sol';
-import './CrocEvents.sol';
+import "./libraries/Directives.sol";
+import "./libraries/Encoding.sol";
+import "./libraries/TokenFlow.sol";
+import "./libraries/PriceGrid.sol";
+import "./mixins/MarketSequencer.sol";
+import "./mixins/SettleLayer.sol";
+import "./mixins/PoolRegistry.sol";
+import "./interfaces/ICrocMinion.sol";
+import "./callpaths/ColdPath.sol";
+import "./callpaths/BootPath.sol";
+import "./callpaths/WarmPath.sol";
+import "./callpaths/HotPath.sol";
+import "./callpaths/LongPath.sol";
+import "./callpaths/KnockoutPath.sol";
+import "./callpaths/MicroPaths.sol";
+import "./callpaths/SafeModePath.sol";
+import "./CrocEvents.sol";
 
 /* @title CrocSwap exchange contract
  * @notice Top-level CrocSwap contract. Contains all public facing methods and state
@@ -28,7 +28,6 @@ import './CrocEvents.sol';
  *         limit, but this is the only contract that users need to directly interface 
  *         with. */
 contract CrocSwapDex is HotPath, ICrocMinion {
-
     using SafeCast for uint128;
     using TokenFlow for TokenFlow.PairSeq;
     using CurveMath for CurveMath.CurveState;
@@ -36,7 +35,7 @@ contract CrocSwapDex is HotPath, ICrocMinion {
 
     address private immutable _wbera;
 
-    constructor(address initialWbera) HotPath(initialWbera){
+    constructor(address initialWbera) HotPath(initialWbera) {
         // Authority is originally set to deployer address, which can then transfer to
         // proper governance contract (if deployer already isn't)
         authority_ = msg.sender;
@@ -84,13 +83,20 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      * @return The token base and quote token flows associated with this swap action. 
      *         (Negative indicates a credit paid to the user, positive a debit collected
      *         from the user) */
-    function swap (address base, address quote,
-                   uint256 poolIdx, bool isBuy, bool inBaseQty, uint128 qty, uint16 tip,
-                   uint128 limitPrice, uint128 minOut,
-                   uint8 reserveFlags) reEntrantLock public payable
-        returns (int128 baseFlow, int128 quoteFlow) {
-        bytes memory cmd = abi.encode(base, quote, poolIdx, isBuy, inBaseQty, qty, tip,
-                                      limitPrice, minOut, reserveFlags);
+    function swap(
+        address base,
+        address quote,
+        uint256 poolIdx,
+        bool isBuy,
+        bool inBaseQty,
+        uint128 qty,
+        uint16 tip,
+        uint128 limitPrice,
+        uint128 minOut,
+        uint8 reserveFlags
+    ) public payable reEntrantLock returns (int128 baseFlow, int128 quoteFlow) {
+        bytes memory cmd =
+            abi.encode(base, quote, poolIdx, isBuy, inBaseQty, qty, tip, limitPrice, minOut, reserveFlags);
         bytes memory result = callUserCmdMem(CrocSlots.SWAP_PROXY_IDX, cmd);
         return abi.decode(result, (int128, int128));
     }
@@ -105,8 +111,7 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      *                 dependent on the specific callpath.
      * @param sudo     If true, indicates that the command should be called with elevated
      *                 privileges. */
-    function protocolCmd (uint16 callpath, bytes calldata cmd, bool sudo)
-        protocolOnly(sudo) public payable override {
+    function protocolCmd(uint16 callpath, bytes calldata cmd, bool sudo) public payable override protocolOnly(sudo) {
         callProtocolCmd(callpath, cmd);
     }
 
@@ -117,8 +122,7 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      * @param callpath The index of the proxy sidecar the command is being called on.
      * @param cmd The arbitrary call data the client is calling the proxy sidecar.
      * @return Arbitrary byte data (if any) returned by the command. */
-    function userCmd (uint16 callpath, bytes calldata cmd) reEntrantLock
-        public payable returns (bytes memory) {
+    function userCmd(uint16 callpath, bytes calldata cmd) public payable reEntrantLock returns (bytes memory) {
         return callUserCmd(callpath, cmd);
     }
 
@@ -138,11 +142,18 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      *                  private key of the public address the command is being executed 
      *                  for.
      * @return Arbitrary byte data (if any) returned by the command. */
-    function userCmdRelayer (uint16 callpath, bytes calldata cmd,
-                             bytes calldata conds, bytes calldata relayerTip, 
-                             bytes calldata signature)
+    function userCmdRelayer(
+        uint16 callpath,
+        bytes calldata cmd,
+        bytes calldata conds,
+        bytes calldata relayerTip,
+        bytes calldata signature
+    )
+        public
+        payable
         reEntrantAgent(CrocRelayerCall(callpath, cmd, conds, relayerTip), signature)
-        public payable returns (bytes memory output) {
+        returns (bytes memory output)
+    {
         output = callUserCmd(callpath, cmd);
         tipRelayer(relayerTip);
     }
@@ -157,9 +168,12 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      * @param cmd The arbitrary call data the client is calling the proxy sidecar.
      * @param client The address of the client the router is calling on behalf of.
      * @return Arbitrary byte data (if any) returned by the command. */
-    function userCmdRouter (uint16 callpath, bytes calldata cmd, address client)
-        reEntrantApproved(client, callpath) public payable
-        returns (bytes memory) {
+    function userCmdRouter(uint16 callpath, bytes calldata cmd, address client)
+        public
+        payable
+        reEntrantApproved(client, callpath)
+        returns (bytes memory)
+    {
         return callUserCmd(callpath, cmd);
     }
 
@@ -167,24 +181,24 @@ contract CrocSwapDex is HotPath, ICrocMinion {
      * @dev    This function is bare bones, because we're trying to keep the size 
      *         footprint of CrocSwapDex down. See SlotLocations.sol and QueryHelper.sol 
      *         for syntactic sugar around accessing/parsing specific data. */
-    function readSlot (uint256 slot) public view returns (uint256 data) {
+    function readSlot(uint256 slot) public view returns (uint256 data) {
         assembly {
-        data := sload(slot)
+            data := sload(slot)
         }
     }
 
     /* @notice Validation function used by external contracts to verify an address is
      *         a valid CrocSwapDex contract. */
-    function acceptCrocDex() pure public returns (bool) { return true; }
+    function acceptCrocDex() public pure returns (bool) {
+        return true;
+    }
 }
-
 
 /* @notice Alternative constructor to CrocSwapDex that's more convenient. However
  *     the deploy transaction is several hundred kilobytes and will get droppped by 
  *     geth. Useful for testing environments though. */
 contract CrocSwapDexSeed is CrocSwapDex {
-    
-constructor(address initialWbera) CrocSwapDex(initialWbera) {
+    constructor(address initialWbera) CrocSwapDex(initialWbera) {
         proxyPaths_[CrocSlots.LP_PROXY_IDX] = address(new WarmPath(initialWbera));
         proxyPaths_[CrocSlots.COLD_PROXY_IDX] = address(new ColdPath(initialWbera));
         proxyPaths_[CrocSlots.LONG_PROXY_IDX] = address(new LongPath(initialWbera));
@@ -194,4 +208,3 @@ constructor(address initialWbera) CrocSwapDex(initialWbera) {
         proxyPaths_[CrocSlots.SAFE_MODE_PROXY_PATH] = address(new SafeModePath());
     }
 }
-

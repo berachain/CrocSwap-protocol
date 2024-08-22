@@ -1,14 +1,13 @@
-// SPDX-License-Identifier: GPL-3 
+// SPDX-License-Identifier: GPL-3
 
 pragma solidity 0.8.19;
 
-import '../libraries/CurveCache.sol';
+import "../libraries/CurveCache.sol";
 
 /* @notice Simple interface that defines the surface between the CrocSwapDex
  *         itself and protocol governance and policy. All governance actions are
  *         are executed through the single protocolCmd() method. */
 interface ICrocMinion {
-
     /* @notice Calls a general governance authorized command on the CrocSwapDex contract.
      *
      * @param proxyPath The proxy callpath sidecar to execute the command within. (Will
@@ -19,8 +18,7 @@ interface ICrocMinion {
      *                  authority transfers or upgrades.) The ability to call with sudo 
      *                  true should be reserved for privileged callpaths in the governance
      *                  controller contract. */
-    function protocolCmd (uint16 proxyPath, bytes calldata cmd, bool sudo)
-        payable external;
+    function protocolCmd(uint16 proxyPath, bytes calldata cmd, bool sudo) external payable;
 }
 
 /* @notice Interface for a contract that directly governs a CrocSwap dex contract. */

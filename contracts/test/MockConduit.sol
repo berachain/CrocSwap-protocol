@@ -6,7 +6,6 @@ import "../interfaces/ICrocLpConduit.sol";
 import "../libraries/PoolSpecs.sol";
 
 contract MockLpConduit is ICrocLpConduit {
-
     bool accept_;
 
     address public senderSnap_;
@@ -16,23 +15,27 @@ contract MockLpConduit is ICrocLpConduit {
     uint128 public liqSnap_;
     uint72 public mileageSnap_;
     bool public isDeposit_;
-    
-    constructor (bool accept) {
+
+    constructor(bool accept) {
         accept_ = accept;
     }
 
-    function setAccept (bool accept) public {
+    function setAccept(bool accept) public {
         accept_ = accept;
     }
 
-    function hashMatches (address base, address quote, uint256 poolIdx)
-        public view returns (bool){
+    function hashMatches(address base, address quote, uint256 poolIdx) public view returns (bool) {
         return poolSnap_ == PoolSpecs.encodeKey(base, quote, poolIdx);
     }
 
-    function depositCrocLiq (address sender, bytes32 poolHash,
-                             int24 lowerTick, int24 upperTick, uint128 liq,
-                             uint72 mileage) public override returns (bool) {
+    function depositCrocLiq(
+        address sender,
+        bytes32 poolHash,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 liq,
+        uint72 mileage
+    ) public override returns (bool) {
         isDeposit_ = true;
         senderSnap_ = sender;
         poolSnap_ = poolHash;
@@ -43,9 +46,14 @@ contract MockLpConduit is ICrocLpConduit {
         return accept_;
     }
 
-    function withdrawCrocLiq (address sender, bytes32 poolHash,
-                              int24 lowerTick, int24 upperTick, uint128 liq,
-                              uint72 mileage) public override returns (bool) {
+    function withdrawCrocLiq(
+        address sender,
+        bytes32 poolHash,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 liq,
+        uint72 mileage
+    ) public override returns (bool) {
         isDeposit_ = false;
         senderSnap_ = sender;
         poolSnap_ = poolHash;
@@ -55,5 +63,4 @@ contract MockLpConduit is ICrocLpConduit {
         mileageSnap_ = mileage;
         return accept_;
     }
-
 }

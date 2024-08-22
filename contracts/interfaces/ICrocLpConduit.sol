@@ -1,14 +1,13 @@
-// SPDX-License-Identifier: GPL-3 
+// SPDX-License-Identifier: GPL-3
 
 pragma solidity 0.8.19;
 
-import '../libraries/Directives.sol';
+import "../libraries/Directives.sol";
 
 /* @title LP conduit interface
  * @notice Standard interface for contracts that accept and manage LP positions on behalf
  *         of end users. Typical example would be an ERC20 tracker for LP tokens. */
 interface ICrocLpConduit {
-
     /* @notice Called anytime a user mints liquidity against the conduit instance. To 
      *         utilize the user would call a mint operation on the dex with the address
      *         of the LP conduit they want to use. This method will be called to notify
@@ -28,11 +27,21 @@ interface ICrocLpConduit {
      *
      * @return   Return false if the conduit implementation does not accept the liquidity
      *           deposit. Reverts the transaction. */
-    function depositCrocLiq (address sender, bytes32 poolHash,
-                             int24 lowerTick, int24 upperTick,
-                             uint128 liq, uint72 mileage) external returns (bool);
+    function depositCrocLiq(
+        address sender,
+        bytes32 poolHash,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 liq,
+        uint72 mileage
+    ) external returns (bool);
 
-    function withdrawCrocLiq (address sender, bytes32 poolHash,
-                              int24 lowerTick, int24 upperTick,
-                              uint128 liq, uint72 mileage) external returns (bool);
+    function withdrawCrocLiq(
+        address sender,
+        bytes32 poolHash,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 liq,
+        uint72 mileage
+    ) external returns (bool);
 }

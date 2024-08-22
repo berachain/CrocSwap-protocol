@@ -3,13 +3,12 @@
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './Chaining.sol';
+import "./Chaining.sol";
 
 /* @title Token flow library
  * @notice Provides a facility for joining token flows for trades that occur on an 
  *         arbitrary long chain of overlapping pairs. */
 library TokenFlow {
-
     /* @notice Represents the current hop within a chain of pair hops.
      * @param baseToken_ The base token in the current pair. (If zero native Ethereum)
      * @param quoteToken_ The quote token in the current pair.
@@ -36,9 +35,8 @@ library TokenFlow {
      * @param tokenFront The token associated with the front or entry of the chain's 
      *                   next pair hop.
      * @param tokenBack The token associated with the back or exit of the chain's 
-     *                  next pair hop. */     
-    function nextHop (PairSeq memory seq, address tokenFront, address tokenBack)
-        pure internal {
+     *                  next pair hop. */
+    function nextHop(PairSeq memory seq, address tokenFront, address tokenBack) internal pure {
         seq.isBaseFront_ = tokenFront < tokenBack;
         if (seq.isBaseFront_) {
             seq.baseToken_ = tokenFront;
@@ -50,12 +48,12 @@ library TokenFlow {
     }
 
     /* @notice Returns the token at the front/entry side of the pair hop. */
-    function frontToken (PairSeq memory seq) internal pure returns (address) {
+    function frontToken(PairSeq memory seq) internal pure returns (address) {
         return seq.isBaseFront_ ? seq.baseToken_ : seq.quoteToken_;
     }
 
     /* @notice Returns the token at the back/exit side of the pair hop. */
-    function backToken (PairSeq memory seq) internal pure returns (address) {
+    function backToken(PairSeq memory seq) internal pure returns (address) {
         return seq.isBaseFront_ ? seq.quoteToken_ : seq.baseToken_;
     }
 
@@ -71,14 +69,13 @@ library TokenFlow {
      *                     previous hop) on the front/entry side of the pair to be 
      *                     settled. Negative indicates credit from dex to user, positive
      *                     indicates debit from user to dex.*/
-    function clipFlow (PairSeq memory seq) internal pure returns (int128 clippedFlow) {
-        (int128 frontAccum, int128 backAccum) = seq.isBaseFront_ ?
-            (seq.flow_.baseFlow_, seq.flow_.quoteFlow_) :
-            (seq.flow_.quoteFlow_, seq.flow_.baseFlow_);
-        
+    function clipFlow(PairSeq memory seq) internal pure returns (int128 clippedFlow) {
+        (int128 frontAccum, int128 backAccum) =
+            seq.isBaseFront_ ? (seq.flow_.baseFlow_, seq.flow_.quoteFlow_) : (seq.flow_.quoteFlow_, seq.flow_.baseFlow_);
+
         clippedFlow = seq.legFlow_ + frontAccum;
         seq.legFlow_ = backAccum;
-        
+
         seq.flow_.baseFlow_ = 0;
         seq.flow_.quoteFlow_ = 0;
         seq.flow_.baseProto_ = 0;
@@ -88,14 +85,14 @@ library TokenFlow {
     /* @notice Returns the final flow to be settled associated with the closing leg at 
      *         the end of the chain of pair hops. Negative means credit from dex to user.
      *         Positive is debit from user to dex. */
-    function closeFlow (PairSeq memory seq) internal pure returns (int128) {
+    function closeFlow(PairSeq memory seq) internal pure returns (int128) {
         return seq.legFlow_;
     }
 
     /* @notice If true, indicates that the asset-specifying address represents native 
      *         Ethereum. Otherwise it should be the valid address of the ERC20 token 
      *         tracker. */
-    function isEtherNative (address token) internal pure returns (bool) {
+    function isEtherNative(address token) internal pure returns (bool) {
         return token == address(0);
     }
 }

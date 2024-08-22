@@ -111,8 +111,7 @@ library Chaining {
      *   for flows going to the pool.
      * @param quote The quote side token flows. Negative when going to the user, positive
      *   for flows going to the pool. */
-    function accumFlow (PairFlow memory flow, int128 base, int128 quote)
-        internal pure {
+    function accumFlow(PairFlow memory flow, int128 base, int128 quote) internal pure {
         flow.baseFlow_ += base;
         flow.quoteFlow_ += quote;
     }
@@ -122,7 +121,7 @@ library Chaining {
      * @param accum The PairFlow object being accumulated. Function writes to this
      *   structure.
      * @param flow The PairFlow input, whose flow is being added to the accumulator. */
-    function foldFlow (PairFlow memory accum, PairFlow memory flow) internal pure {
+    function foldFlow(PairFlow memory accum, PairFlow memory flow) internal pure {
         accum.baseFlow_ += flow.baseFlow_;
         accum.quoteFlow_ += flow.quoteFlow_;
         accum.baseProto_ += flow.baseProto_;
@@ -139,8 +138,7 @@ library Chaining {
      *   for flows going to the pool.
      * @param proto The amount of protocol fees collected by the swap operation. (The
      *   total flows must be inclusive of this value). */
-    function accumSwap (PairFlow memory flow, bool inBaseQty,
-                        int128 base, int128 quote, uint128 proto) internal pure {
+    function accumSwap(PairFlow memory flow, bool inBaseQty, int128 base, int128 quote, uint128 proto) internal pure {
         accumFlow(flow, base, quote);
         if (inBaseQty) {
             flow.quoteProto_ += proto;
@@ -167,20 +165,20 @@ library Chaining {
      * @return liq The amount of ambient liquidity to mint/burn to meet the target.
      * @return isAdd If true, then liquidity must be minted to neutralize rolling flow,
      *   If false, then liquidity must be burned. */
-    function plugLiquidity (RollTarget memory roll,
-                            Directives.AmbientDirective memory dir,
-                            CurveMath.CurveState memory curve,
-                            PairFlow memory flow) internal pure {
+    function plugLiquidity(
+        RollTarget memory roll,
+        Directives.AmbientDirective memory dir,
+        CurveMath.CurveState memory curve,
+        PairFlow memory flow
+    ) internal pure {
         if (dir.rollType_ != NO_ROLL_TYPE) {
-            (uint128 collateral, bool isAdd) =
-                collateralDemand(roll, flow, dir.rollType_, dir.liquidity_);
+            (uint128 collateral, bool isAdd) = collateralDemand(roll, flow, dir.rollType_, dir.liquidity_);
 
-            uint128 liq = sizeAmbientLiq
-                (collateral, isAdd, curve.priceRoot_, roll.inBaseQty_);
+            uint128 liq = sizeAmbientLiq(collateral, isAdd, curve.priceRoot_, roll.inBaseQty_);
             (dir.liquidity_, dir.isAdd_) = (liq, isAdd);
         }
     }
-    
+
     /* @notice Computes the amount of concentrated liquidity to mint/burn in order to 
      *   neutralize the previously accumulated flow in the pair.
      *
@@ -204,17 +202,18 @@ library Chaining {
      *   target. 
      * @return isAdd If true, then liquidity must be minted to neutralize rolling flow,
      *   If false, then liquidity must be burned. */
-    function plugLiquidity (RollTarget memory roll,
-                            Directives.ConcentratedDirective memory bend,
-                            CurveMath.CurveState memory curve,
-                            int24 lowTick, int24 highTick, PairFlow memory flow)
-        internal pure {
-        if (bend.rollType_ == NO_ROLL_TYPE) { return; }
+    function plugLiquidity(
+        RollTarget memory roll,
+        Directives.ConcentratedDirective memory bend,
+        CurveMath.CurveState memory curve,
+        int24 lowTick,
+        int24 highTick,
+        PairFlow memory flow
+    ) internal pure {
+        if (bend.rollType_ == NO_ROLL_TYPE) return;
 
-        (uint128 collateral, bool isAdd) = collateralDemand(roll, flow, bend.rollType_,
-                                                            bend.liquidity_);
-        uint128 liq = sizeConcLiq(collateral, isAdd, curve.priceRoot_,
-                                  lowTick, highTick, roll.inBaseQty_);
+        (uint128 collateral, bool isAdd) = collateralDemand(roll, flow, bend.rollType_, bend.liquidity_);
+        uint128 liq = sizeConcLiq(collateral, isAdd, curve.priceRoot_, lowTick, highTick, roll.inBaseQty_);
         (bend.liquidity_, bend.isAdd_) = (liq, isAdd);
     }
 
@@ -235,10 +234,12 @@ library Chaining {
      *                  token.
      * @return The amount of liquidity, in sqrt(X*Y) units, supported by this 
      *         collateral. */
-    function sizeAmbientLiq (uint128 collateral, bool isAdd, uint128 priceRoot,
-                             bool inBaseQty) internal pure returns (uint128) {
-        uint128 liq = bufferCollateral(collateral, isAdd)
-            .liquiditySupported(inBaseQty, priceRoot);
+    function sizeAmbientLiq(uint128 collateral, bool isAdd, uint128 priceRoot, bool inBaseQty)
+        internal
+        pure
+        returns (uint128)
+    {
+        uint128 liq = bufferCollateral(collateral, isAdd).liquiditySupported(inBaseQty, priceRoot);
         return isAdd ? liq : (liq + 1);
     }
 
@@ -257,35 +258,32 @@ library Chaining {
      *                  token.
      * @return The amount of concentrated liquidity (in sqrt(X*Y) units) supported in
      *         the given tick range. */
-    function sizeConcLiq (uint128 collateral, bool isAdd, uint128 priceRoot,
-                          int24 lowTick, int24 highTick, bool inBaseQty)
-        internal pure returns (uint128) {
-        (uint128 bidPrice, uint128 askPrice) =
-            determinePriceRange(priceRoot, lowTick, highTick, inBaseQty);
-        
-        uint128 liq = bufferCollateral(collateral, isAdd)
-            .liquiditySupported(inBaseQty, bidPrice, askPrice);
+    function sizeConcLiq(
+        uint128 collateral,
+        bool isAdd,
+        uint128 priceRoot,
+        int24 lowTick,
+        int24 highTick,
+        bool inBaseQty
+    ) internal pure returns (uint128) {
+        (uint128 bidPrice, uint128 askPrice) = determinePriceRange(priceRoot, lowTick, highTick, inBaseQty);
 
-        return isAdd ?
-            liq.shaveRoundLots() :
-            liq.shaveRoundLotsUp();
+        uint128 liq = bufferCollateral(collateral, isAdd).liquiditySupported(inBaseQty, bidPrice, askPrice);
+
+        return isAdd ? liq.shaveRoundLots() : liq.shaveRoundLotsUp();
     }
 
     // Represents a small, economically meaningless amount of token wei that makes sure
-    // we're always leaving the user with a collateral credit.    
-    function bufferCollateral (uint128 collateral, bool isAdd)
-        private pure returns (uint128) {
+    // we're always leaving the user with a collateral credit.
+    function bufferCollateral(uint128 collateral, bool isAdd) private pure returns (uint128) {
         uint128 BUFFER_COLLATERAL = 4;
 
         if (isAdd) {
             // This ternary switch always produces non-negative result, preventing underflow
-            return collateral < BUFFER_COLLATERAL ? 0 :
-                collateral - BUFFER_COLLATERAL;
+            return collateral < BUFFER_COLLATERAL ? 0 : collateral - BUFFER_COLLATERAL;
         } else {
             // This ternary switch prevents buffering into an overflow
-            return collateral > type(uint128).max - 4 ?
-                type(uint128).max :
-                collateral + BUFFER_COLLATERAL;
+            return collateral > type(uint128).max - 4 ? type(uint128).max : collateral + BUFFER_COLLATERAL;
         }
     }
 
@@ -301,9 +299,10 @@ library Chaining {
      *   the rolling flow accumulator.
      * @param flow The previously accumulated flow on this pair. Based on the context 
      *   above, this function will target the accumulated flow contained herein. */
-    function plugSwapGap (RollTarget memory roll,
-                          Directives.SwapDirective memory swap,
-                          PairFlow memory flow) internal pure {
+    function plugSwapGap(RollTarget memory roll, Directives.SwapDirective memory swap, PairFlow memory flow)
+        internal
+        pure
+    {
         if (swap.rollType_ != NO_ROLL_TYPE) {
             int128 plugQty = scaleRoll(roll, flow, swap.rollType_, swap.qty_);
             overwriteSwap(swap, plugQty);
@@ -321,23 +320,23 @@ library Chaining {
      * we disable limitPrice. This is fine because rolling swaps are only
      * used in the composite code path, where the user can set their output
      * limits at the settle layer. */
-    function overwriteSwap (Directives.SwapDirective memory swap,
-                            int128 rollQty) private pure {
+    function overwriteSwap(Directives.SwapDirective memory swap, int128 rollQty) private pure {
         bool prevDir = swap.isBuy_;
         swap.isBuy_ = swap.inBaseQty_ ? (rollQty < 0) : (rollQty > 0);
         swap.qty_ = rollQty > 0 ? uint128(rollQty) : uint128(-rollQty);
 
         if (prevDir != swap.isBuy_) {
-            swap.limitPrice_ = swap.isBuy_ ?
-                TickMath.MAX_SQRT_RATIO : TickMath.MIN_SQRT_RATIO;
+            swap.limitPrice_ = swap.isBuy_ ? TickMath.MAX_SQRT_RATIO : TickMath.MIN_SQRT_RATIO;
         }
     }
 
     /* @notice Calculates the total amount of collateral and its direction, that we should
      *   be targeting to neutralize when sizing a liquidity gap-fill. */
-    function collateralDemand (RollTarget memory roll, PairFlow memory flow,
-                               uint8 rollType, uint128 nextQty) private pure
-        returns (uint128 collateral, bool isAdd) {
+    function collateralDemand(RollTarget memory roll, PairFlow memory flow, uint8 rollType, uint128 nextQty)
+        private
+        pure
+        returns (uint128 collateral, bool isAdd)
+    {
         int128 collatFlow = scaleRoll(roll, flow, rollType, nextQty);
 
         isAdd = collatFlow < 0;
@@ -347,9 +346,11 @@ library Chaining {
     /* @notice Calculates the effective bid/ask committed collateral range related
      *   to a concentrated liquidity range order. The calculation is different depending on
      *   whether the curve price is inside or outside the specified tick range. (See below) */
-    function determinePriceRange (uint128 curvePrice, int24 lowTick, int24 highTick,
-                                  bool inBase) private pure
-        returns (uint128 bidPrice, uint128 askPrice) {
+    function determinePriceRange(uint128 curvePrice, int24 lowTick, int24 highTick, bool inBase)
+        private
+        pure
+        returns (uint128 bidPrice, uint128 askPrice)
+    {
         bidPrice = lowTick.getSqrtRatioAtTick();
         askPrice = highTick.getSqrtRatioAtTick();
 
@@ -380,7 +381,7 @@ library Chaining {
          *           |                     |                        |                 
          *    <------O---------------------**************************---------------------->
          *                                      ZERO base tokens
-         */                  
+         */
         if (curvePrice <= bidPrice) {
             require(!inBase);
         } else if (curvePrice >= askPrice) {
@@ -395,12 +396,11 @@ library Chaining {
     /* @notice Sums the total rolling balance that should be targeted to be neutralized.
      *   Includes both the accumulated flow in the pair and the pre-pair starting balance
      *   set in the RollTarget context (if any). */
-    function totalBalance (RollTarget memory roll, PairFlow memory flow)
-        private pure returns (int128) {
+    function totalBalance(RollTarget memory roll, PairFlow memory flow) private pure returns (int128) {
         int128 pairFlow = (roll.inBaseQty_ ? flow.baseFlow_ : flow.quoteFlow_);
         return roll.prePairBal_ + pairFlow;
     }
-    
+
     /* @notice Given a cumulative rolling flow, calculates a gap-fill quantity based on
      *         rolling target parameters.
      *
@@ -410,8 +410,11 @@ library Chaining {
      *                 above)
      * @param target   The rolling gap-fill target, contextualized by rollType value.
      * @return         The size optimally scaled to match the rolling gap-fill target. */
-    function scaleRoll (RollTarget memory roll, PairFlow memory flow,
-                        uint8 rollType, uint128 target) private pure returns (int128) {
+    function scaleRoll(RollTarget memory roll, PairFlow memory flow, uint8 rollType, uint128 target)
+        private
+        pure
+        returns (int128)
+    {
         int128 rollGap = totalBalance(roll, flow);
         return scalePlug(rollGap, rollType, target);
     }
@@ -424,11 +427,12 @@ library Chaining {
      *                 above)
      * @param target   The rolling gap-fill target, contextualized by rollType value.
      * @return         The size optimally scaled to match the rolling gap-fill target. */
-    function scalePlug (int128 rollGap, uint8 rollType, uint128 target)
-        private pure returns (int128) {
-        if (rollType == ROLL_PASS_POS_TYPE) { return int128(target); }
-        else if (rollType == ROLL_PASS_NEG_TYPE) { return -int128(target); }
-        else if (rollType == ROLL_FRAC_TYPE) {
+    function scalePlug(int128 rollGap, uint8 rollType, uint128 target) private pure returns (int128) {
+        if (rollType == ROLL_PASS_POS_TYPE) {
+            return int128(target);
+        } else if (rollType == ROLL_PASS_NEG_TYPE) {
+            return -int128(target);
+        } else if (rollType == ROLL_FRAC_TYPE) {
             return int128(int256(rollGap) * int256(int128(target)) / 10000);
         } else if (rollType == ROLL_DEBIT_TYPE) {
             return rollGap + int128(target);
@@ -444,8 +448,11 @@ library Chaining {
      *         a token quantity amount. Because of fixed-point rounding the latter will
      *         be slightly smaller than the fixed specified amount. For usability and gas
      *         optimization the user will likely want to just pay the full amount. */
-    function pinFlow (int128 baseFlow, int128 quoteFlow, uint128 uQty, bool inBase)
-        internal pure returns (int128, int128) {
+    function pinFlow(int128 baseFlow, int128 quoteFlow, uint128 uQty, bool inBase)
+        internal
+        pure
+        returns (int128, int128)
+    {
         int128 qty = uQty.toInt128Sign();
         if (inBase && int128(qty) > baseFlow) {
             baseFlow = int128(qty);

@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: GPL-3                                                          
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import '../libraries/Directives.sol';
-import '../libraries/PoolSpecs.sol';
-import '../libraries/PriceGrid.sol';
-import '../libraries/KnockoutLiq.sol';
+import "../libraries/Directives.sol";
+import "../libraries/PoolSpecs.sol";
+import "../libraries/PriceGrid.sol";
+import "../libraries/KnockoutLiq.sol";
 
 /* @title Storage layout base layer
  * 
@@ -19,7 +19,6 @@ import '../libraries/KnockoutLiq.sol';
  *    to do this may lead to storage layout inconsistencies between proxy
  *    contracts. */
 contract StorageLayout {
-
     // Re-entrant lock. Should always be reset to 0x0 after the end of every
     // top-level call. Any top-level call should fail on if this value is non-
     // zero.
@@ -45,7 +44,7 @@ contract StorageLayout {
     // If set to false, then the embedded hot-path (swap()) is not enabled and
     // users must use the hot proxy for the hot-path. By default set to true.
     bool internal hotPathOpen_;
-    
+
     bool internal inSafeMode_;
 
     // The protocol take rate for relayer tips. Represented in 1/256 fractions
@@ -53,60 +52,90 @@ contract StorageLayout {
 
     // Slots for sidecar proxy contracts
     address[65536] internal proxyPaths_;
-        
+
     // Address of the current dex protocol authority. Can be transferred
     address internal authority_;
 
-    /**************************************************************/
+    /**
+     *
+     */
     // LevelBook
-    /**************************************************************/
+    /**
+     *
+     */
     struct BookLevel {
         uint96 bidLots_;
         uint96 askLots_;
         uint64 feeOdometer_;
     }
-    mapping(bytes32 => BookLevel) internal levels_;
-    /**************************************************************/
 
-    
-    /**************************************************************/
+    mapping(bytes32 => BookLevel) internal levels_;
+    /**
+     *
+     */
+
+    /**
+     *
+     */
     // Knockout Counters
-    /**************************************************************/
+    /**
+     *
+     */
     mapping(bytes32 => KnockoutLiq.KnockoutPivot) internal knockoutPivots_;
     mapping(bytes32 => KnockoutLiq.KnockoutMerkle) internal knockoutMerkles_;
     mapping(bytes32 => KnockoutLiq.KnockoutPos) internal knockoutPos_;
-    /**************************************************************/
+    /**
+     *
+     */
 
-    
-    /**************************************************************/
+    /**
+     *
+     */
     // TickCensus
-    /**************************************************************/
+    /**
+     *
+     */
     mapping(bytes32 => uint256) internal mezzanine_;
     mapping(bytes32 => uint256) internal terminus_;
-    /**************************************************************/
-    
+    /**
+     *
+     */
 
-    /**************************************************************/
+    /**
+     *
+     */
     // PoolRegistry
-    /**************************************************************/
+    /**
+     *
+     */
     mapping(uint256 => PoolSpecs.Pool) internal templates_;
     mapping(bytes32 => PoolSpecs.Pool) internal pools_;
     mapping(address => PriceGrid.ImproveSettings) internal improves_;
     uint128 internal newPoolLiq_;
     uint8 internal protocolTakeRate_;
-    /**************************************************************/
+    /**
+     *
+     */
 
-    
-    /**************************************************************/
+    /**
+     *
+     */
     // ProtocolAccount
-    /**************************************************************/
+    /**
+     *
+     */
     mapping(address => uint128) internal feesAccum_;
-    /**************************************************************/
+    /**
+     *
+     */
 
-
-    /**************************************************************/
+    /**
+     *
+     */
     // PositionRegistrar
-    /**************************************************************/
+    /**
+     *
+     */
     struct RangePosition {
         uint128 liquidity_;
         uint64 feeMileage_;
@@ -125,22 +154,32 @@ contract StorageLayout {
         uint128 seeds_;
         uint32 timestamp_;
     }
-    
+
     mapping(bytes32 => RangePosition) internal positions_;
     mapping(bytes32 => AmbientPosition) internal ambPositions_;
-    /**************************************************************/
+    /**
+     *
+     */
 
-
-    /**************************************************************/
+    /**
+     *
+     */
     // LiquidityCurve
-    /**************************************************************/
+    /**
+     *
+     */
     mapping(bytes32 => CurveMath.CurveState) internal curves_;
-    /**************************************************************/
+    /**
+     *
+     */
 
-    
-    /**************************************************************/
+    /**
+     *
+     */
     // UserBalance settings
-    /**************************************************************/
+    /**
+     *
+     */
     struct UserBalance {
         // Multiple loosely related fields are grouped together to allow
         // off-chain users to optimize calls to minimize cold SLOADS by
@@ -149,17 +188,18 @@ contract StorageLayout {
         uint32 nonce_;
         uint32 agentCallsLeft_;
     }
-    
-    mapping(bytes32 => UserBalance) internal userBals_;
-    /**************************************************************/
 
+    mapping(bytes32 => UserBalance) internal userBals_;
+    /**
+     *
+     */
     address treasury_;
     uint64 treasuryStartTime_;
 
     // The index of the stable swap pool type.
     uint256 internal stableSwapPoolIdx_;
 
-    // Since take rate is represented in 1/256, this represents a maximum possible take 
+    // Since take rate is represented in 1/256, this represents a maximum possible take
     // rate of 50%.
     uint8 MAX_TAKE_RATE = 128;
 
@@ -172,24 +212,22 @@ contract StorageLayout {
  * @dev Note that if the struct of StorageLayer changes, these slot locations *will*
  *      change, and the values below will have to be manually updated. */
 library CrocSlots {
-
     // Slot location of storage slots and/or hash map storage slot offsets. Values below
     // can be used to directly read state in CrocSwapDex by other contracts.
-    uint constant public AUTHORITY_SLOT = 0;
-    uint constant public LVL_MAP_SLOT = 65538;
-    uint constant public KO_PIVOT_SLOT = 65539;
-    uint constant public KO_MERKLE_SLOT = 65540;
-    uint constant public KO_POS_SLOT = 65541;
-    uint constant public POOL_TEMPL_SLOT = 65544;
-    uint constant public POOL_PARAM_SLOT = 65545;
-    uint constant public FEE_MAP_SLOT = 65548;
-    uint constant public POS_MAP_SLOT = 65549;
-    uint constant public AMB_MAP_SLOT = 65550;
-    uint constant public CURVE_MAP_SLOT = 65551;
-    uint constant public BAL_MAP_SLOT = 65552;
-    uint constant public POS_MAP_SLOT_72 = 65554;
+    uint256 public constant AUTHORITY_SLOT = 0;
+    uint256 public constant LVL_MAP_SLOT = 65538;
+    uint256 public constant KO_PIVOT_SLOT = 65539;
+    uint256 public constant KO_MERKLE_SLOT = 65540;
+    uint256 public constant KO_POS_SLOT = 65541;
+    uint256 public constant POOL_TEMPL_SLOT = 65544;
+    uint256 public constant POOL_PARAM_SLOT = 65545;
+    uint256 public constant FEE_MAP_SLOT = 65548;
+    uint256 public constant POS_MAP_SLOT = 65549;
+    uint256 public constant AMB_MAP_SLOT = 65550;
+    uint256 public constant CURVE_MAP_SLOT = 65551;
+    uint256 public constant BAL_MAP_SLOT = 65552;
+    uint256 public constant POS_MAP_SLOT_72 = 65554;
 
-        
     // The slots of the currently attached sidecar proxy contracts. These are set by
     // covention and should be expanded over time as more sidecars are installed. For
     // backwards compatibility, upgraders should never break existing interface on
@@ -210,7 +248,6 @@ library CrocSlots {
     uint16 constant LP_PROXY_LEGACY_IDX = 2;
     uint16 constant LONG_PROXY_LEGACY_IDX = 4;
     uint16 constant MICRO_PROXY_LEGACY_IDX = 5;
-
 }
 
 // Not used in production. Just used so we can easily check struct size in hardhat.

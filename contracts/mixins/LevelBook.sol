@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: GPL-3                                                          
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import '../libraries/LiquidityMath.sol';
-import '../libraries/TickMath.sol';
-import './TickCensus.sol';
-import './StorageLayout.sol';
+import "../libraries/LiquidityMath.sol";
+import "../libraries/TickMath.sol";
+import "./TickCensus.sol";
+import "./StorageLayout.sol";
 
 /* @title Level Book Mixin
  * @notice Mixin contract that tracks the aggregate liquidity bumps and in-range reward
@@ -53,38 +53,34 @@ contract LevelBook is TickCensus {
      * @return knockoutFlag - Indicates that the liquidity of the cross level has a 
      *                        knockout flag toggled. Upstream caller should handle 
      *                        appropriately */
-    function crossLevel (bytes32 poolIdx, int24 tick, bool isBuy, uint64 feeGlobal)
-        internal returns (int128 liqDelta, bool knockoutFlag) {
-        
+    function crossLevel(bytes32 poolIdx, int24 tick, bool isBuy, uint64 feeGlobal)
+        internal
+        returns (int128 liqDelta, bool knockoutFlag)
+    {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
-        int128 crossDelta = LiquidityMath.netLotsOnLiquidity
-            (lvl.bidLots_, lvl.askLots_);
-        
+        int128 crossDelta = LiquidityMath.netLotsOnLiquidity(lvl.bidLots_, lvl.askLots_);
+
         liqDelta = isBuy ? crossDelta : -crossDelta;
 
         if (feeGlobal != lvl.feeOdometer_) {
             lvl.feeOdometer_ = feeGlobal - lvl.feeOdometer_;
-        }                
+        }
 
-        knockoutFlag = isBuy ?
-            lvl.askLots_.hasKnockoutLiq() :
-            lvl.bidLots_.hasKnockoutLiq();
+        knockoutFlag = isBuy ? lvl.askLots_.hasKnockoutLiq() : lvl.bidLots_.hasKnockoutLiq();
     }
 
     /* @notice Retrieves the level book state associated with the tick. */
-    function levelState (bytes32 poolIdx, int24 tick) internal view returns
-        (BookLevel memory) {
+    function levelState(bytes32 poolIdx, int24 tick) internal view returns (BookLevel memory) {
         return levels_[keccak256(abi.encodePacked(poolIdx, tick))];
     }
 
     /* @notice Retrieves a storage pointer to the level associated with the tick. */
-    function fetchLevel (bytes32 poolIdx, int24 tick) internal view returns
-        (BookLevel storage) {
+    function fetchLevel(bytes32 poolIdx, int24 tick) internal view returns (BookLevel storage) {
         return levels_[keccak256(abi.encodePacked(poolIdx, tick))];
     }
 
     /* @notice Deletes the level at the tick. */
-    function deleteLevel (bytes32 poolIdx, int24 tick) private {
+    function deleteLevel(bytes32 poolIdx, int24 tick) private {
         delete levels_[keccak256(abi.encodePacked(poolIdx, tick))];
     }
 
@@ -102,10 +98,10 @@ contract LevelBook is TickCensus {
      * @return feeOdometer - Returns the current fee reward accumulator value for the
      *    range specified by the order. This is necessary, so we consumers of this mixin
      *    can subtract the rewards accumulated before the order was added. */
-    function addBookLiq (bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick,
-                         uint96 lots, uint64 feeGlobal)
-        internal returns (uint64 feeOdometer) {
-
+    function addBookLiq(bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick, uint96 lots, uint64 feeGlobal)
+        internal
+        returns (uint64 feeOdometer)
+    {
         // Make sure to init before add, because init logic relies on pre-add liquidity
         initLevel(poolIdx, midTick, bidTick, feeGlobal);
         initLevel(poolIdx, midTick, askTick, feeGlobal);
@@ -117,10 +113,10 @@ contract LevelBook is TickCensus {
 
     /* @dev Near identical to addBookLiq() above but uses higher precision 72-bit 
      *      range positions and fee odometer values. */
-    function addBookLiq72 (bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick,
-                           uint96 lots, uint64 feeGlobal)
-        internal returns (uint72 feeOdometer) {
-
+    function addBookLiq72(bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick, uint96 lots, uint64 feeGlobal)
+        internal
+        returns (uint72 feeOdometer)
+    {
         // Make sure to init before add, because init logic relies on pre-add liquidity
         initLevel(poolIdx, midTick, bidTick, feeGlobal);
         initLevel(poolIdx, midTick, askTick, feeGlobal);
@@ -129,7 +125,6 @@ contract LevelBook is TickCensus {
         addAsk(poolIdx, askTick, lots);
         feeOdometer = clockFeeOdometer72(poolIdx, midTick, bidTick, askTick, feeGlobal);
     }
-
 
     /* @notice Call when removing liquidity associated with a specific range order.
      *         Decrements the associated tick levels as necessary.
@@ -147,35 +142,40 @@ contract LevelBook is TickCensus {
      *    from the range history, including *before* the order was added. It's the 
      *    downstream user's responsibility to adjust this value with the odometer clock
      *    from addBookLiq to correctly calculate the rewards accumulated over the 
-     *    lifetime of the order. */     
-    function removeBookLiq (bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick,
-                            uint96 lots, uint64 feeGlobal)
-        internal returns (uint64 feeOdometer) {
+     *    lifetime of the order. */
+    function removeBookLiq(bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick, uint96 lots, uint64 feeGlobal)
+        internal
+        returns (uint64 feeOdometer)
+    {
         bool deleteBid = removeBid(poolIdx, bidTick, lots);
         bool deleteAsk = removeAsk(poolIdx, askTick, lots);
         feeOdometer = clockFeeOdometer(poolIdx, midTick, bidTick, askTick, feeGlobal);
 
-        if (deleteBid) { deleteLevel(poolIdx, bidTick); }
-        if (deleteAsk) { deleteLevel(poolIdx, askTick); }
+        if (deleteBid) deleteLevel(poolIdx, bidTick);
+        if (deleteAsk) deleteLevel(poolIdx, askTick);
     }
 
     /* @dev Near identical to removeBookLiq() above but uses higher precision 72-bit 
      *      range positions and fee odometer values. */
-    function removeBookLiq72 (bytes32 poolIdx, int24 midTick, int24 bidTick, int24 askTick,
-                              uint96 lots, uint64 feeGlobal)
-        internal returns (uint72 feeOdometer) {
+    function removeBookLiq72(
+        bytes32 poolIdx,
+        int24 midTick,
+        int24 bidTick,
+        int24 askTick,
+        uint96 lots,
+        uint64 feeGlobal
+    ) internal returns (uint72 feeOdometer) {
         bool deleteBid = removeBid(poolIdx, bidTick, lots);
         bool deleteAsk = removeAsk(poolIdx, askTick, lots);
         feeOdometer = clockFeeOdometer72(poolIdx, midTick, bidTick, askTick, feeGlobal);
 
-        if (deleteBid) { deleteLevel(poolIdx, bidTick); }
-        if (deleteAsk) { deleteLevel(poolIdx, askTick); }
+        if (deleteBid) deleteLevel(poolIdx, bidTick);
+        if (deleteAsk) deleteLevel(poolIdx, askTick);
     }
 
     /* @notice Initializes a new level, including marking the tick as active in the 
      *         bitmap, if the level doesn't previously exist. */
-    function initLevel (bytes32 poolIdx, int24 midTick,
-                        int24 tick, uint64 feeGlobal) private {
+    function initLevel(bytes32 poolIdx, int24 midTick, int24 tick, uint64 feeGlobal) private {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
         if (lvl.bidLots_ == 0 && lvl.askLots_ == 0) {
             if (tick >= midTick) {
@@ -186,15 +186,15 @@ contract LevelBook is TickCensus {
     }
 
     /* @notice Increments bid liquidity on a previously existing level. */
-    function addBid (bytes32 poolIdx, int24 tick, uint96 incrLots) private {
+    function addBid(bytes32 poolIdx, int24 tick, uint96 incrLots) private {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
         uint96 prevLiq = lvl.bidLots_;
         uint96 newLiq = prevLiq.addLots(incrLots);
         lvl.bidLots_ = newLiq;
     }
 
-    /* @notice Increments ask liquidity on a previously existing level. */    
-    function addAsk (bytes32 poolIdx, int24 tick, uint96 incrLots) private {
+    /* @notice Increments ask liquidity on a previously existing level. */
+    function addAsk(bytes32 poolIdx, int24 tick, uint96 incrLots) private {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
         uint96 prevLiq = lvl.askLots_;
         uint96 newLiq = prevLiq.addLots(incrLots);
@@ -203,8 +203,7 @@ contract LevelBook is TickCensus {
 
     /* @notice Decrements bid liquidity on a level, and also removes the level from
      *          the tick bitmap if necessary. */
-    function removeBid (bytes32 poolIdx, int24 tick,
-                        uint96 subLots) private returns (bool) {
+    function removeBid(bytes32 poolIdx, int24 tick, uint96 subLots) private returns (bool) {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
         uint96 prevLiq = lvl.bidLots_;
         uint96 newLiq = prevLiq.minusLots(subLots);
@@ -217,23 +216,22 @@ contract LevelBook is TickCensus {
             return true;
         }
         return false;
-    }    
+    }
 
     /* @notice Decrements ask liquidity on a level, and also removes the level from
-     *          the tick bitmap if necessary. */    
-    function removeAsk (bytes32 poolIdx, int24 tick,
-                        uint96 subLots) private returns (bool) {
+     *          the tick bitmap if necessary. */
+    function removeAsk(bytes32 poolIdx, int24 tick, uint96 subLots) private returns (bool) {
         BookLevel storage lvl = fetchLevel(poolIdx, tick);
         uint96 prevLiq = lvl.askLots_;
         uint96 newLiq = prevLiq.minusLots(subLots);
-        
+
         lvl.askLots_ = newLiq;
         if (newLiq == 0 && lvl.bidLots_ == 0) {
             forgetTick(poolIdx, tick);
             return true;
         }
         return false;
-    }    
+    }
 
     /* @notice Calculates the current accumulated fee rewards in a given concentrated
      *         liquidity tick range. The difference between this value at two different
@@ -260,12 +258,14 @@ contract LevelBook is TickCensus {
      *         within the range. (Adjusted for an arbitrary offset that stays consistent
      *         over time. Only use this number to compare growth in the range over two
      *         points in time) */
-    function clockFeeOdometer (bytes32 poolIdx, int24 currentTick,
-                               int24 lowerTick, int24 upperTick, uint64 feeGlobal)
-        internal view returns (uint64) {
+    function clockFeeOdometer(bytes32 poolIdx, int24 currentTick, int24 lowerTick, int24 upperTick, uint64 feeGlobal)
+        internal
+        view
+        returns (uint64)
+    {
         uint64 feeLower = pivotFeeBelow(poolIdx, lowerTick, currentTick, feeGlobal);
         uint64 feeUpper = pivotFeeBelow(poolIdx, upperTick, currentTick, feeGlobal);
-        
+
         // This is unchecked because we often rely on circular overflow arithmetic
         // when ticks are initialized at different times. Remember the output of this
         // function is only used to compare across time.
@@ -282,12 +282,14 @@ contract LevelBook is TickCensus {
      *       Each snapshot adds a uint64 max offset to avoid the possibility of underflow. 
      *       Because the offset is included on every calculation, it will always cancel out
      *       in the rewards delta calculation. */
-    function clockFeeOdometer72 (bytes32 poolIdx, int24 currentTick,
-                                 int24 lowerTick, int24 upperTick, uint64 feeGlobal)
-        internal view returns (uint72) {
+    function clockFeeOdometer72(bytes32 poolIdx, int24 currentTick, int24 lowerTick, int24 upperTick, uint64 feeGlobal)
+        internal
+        view
+        returns (uint72)
+    {
         uint72 feeLower = pivotFeeBelow(poolIdx, lowerTick, currentTick, feeGlobal);
         uint72 feeUpper = pivotFeeBelow(poolIdx, upperTick, currentTick, feeGlobal);
-        
+
         // Set to be large enough, so the delta between the uint64 values from pivotFeeBelow()
         // will never underflow the snapshot.
         uint72 fixedOffset = type(uint64).max;
@@ -305,13 +307,12 @@ contract LevelBook is TickCensus {
      *      For more explanation on how the per-tick fee odometer related to the 
      *      cumulative fees in a give range, reference the documenation at 
      *      [docs/FeeOdometer.md] in the project repository. */
-    function pivotFeeBelow (bytes32 poolIdx, int24 lvlTick,
-                            int24 currentTick, uint64 feeGlobal)
-        private view returns (uint64) {
+    function pivotFeeBelow(bytes32 poolIdx, int24 lvlTick, int24 currentTick, uint64 feeGlobal)
+        private
+        view
+        returns (uint64)
+    {
         BookLevel storage lvl = fetchLevel(poolIdx, lvlTick);
-        return lvlTick <= currentTick ?
-            lvl.feeOdometer_ :
-            feeGlobal - lvl.feeOdometer_;            
+        return lvlTick <= currentTick ? lvl.feeOdometer_ : feeGlobal - lvl.feeOdometer_;
     }
 }
-

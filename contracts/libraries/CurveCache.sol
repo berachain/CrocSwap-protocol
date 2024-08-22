@@ -3,8 +3,8 @@
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './CurveMath.sol';
-import './TickMath.sol';
+import "./CurveMath.sol";
+import "./TickMath.sol";
 
 /* @title Curve caching library.
  * @notice Certain values related to the CurveState aren't stored (to save storage),
@@ -30,7 +30,7 @@ library CurveCache {
 
     /* @notice Given a curve cache instance retrieves the price tick, if cached, or 
      *         calculates and cached if cache is dirty. */
-    function pullPriceTick (Cache memory cache) internal pure returns (int24) {
+    function pullPriceTick(Cache memory cache) internal pure returns (int24) {
         if (!cache.isTickClean_) {
             cache.unsafePriceTick_ = cache.curve_.priceRoot_.getTickAtSqrtRatio();
             cache.isTickClean_ = true;
@@ -40,7 +40,7 @@ library CurveCache {
 
     /* @notice Call on a curve cache object, when the underlying price has changed, and
      *         therefore the cache should be conisdered dirty. */
-    function dirtyPrice (Cache memory cache) internal pure {
+    function dirtyPrice(Cache memory cache) internal pure {
         cache.isTickClean_ = false;
     }
 }

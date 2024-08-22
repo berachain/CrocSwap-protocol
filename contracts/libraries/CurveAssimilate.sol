@@ -3,16 +3,16 @@
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './SafeCast.sol';
-import './FixedPoint.sol';
-import './LiquidityMath.sol';
-import './CompoundMath.sol';
-import './CurveMath.sol';
+import "./SafeCast.sol";
+import "./FixedPoint.sol";
+import "./LiquidityMath.sol";
+import "./CompoundMath.sol";
+import "./CurveMath.sol";
 
 /* @title Curve fee assimilation library
  * @notice Provides functionality for incorporating arbitrary token fees into
  *         a locally stable constant-product liquidity curve. */
-library CurveAssimilate {    
+library CurveAssimilate {
     using LiquidityMath for uint128;
     using CompoundMath for uint128;
     using CompoundMath for uint64;
@@ -39,18 +39,15 @@ library CurveAssimilate {
      *    opposite pair side as the swap denomination.
      * @param isSwapInBase  Set to true, if the swap is denominated in the base
      *    token of the pair. (And therefore fees are denominated in quote token) */
-    function assimilateLiq (CurveMath.CurveState memory curve, uint128 feesPaid,
-                            bool isSwapInBase) internal pure {
+    function assimilateLiq(CurveMath.CurveState memory curve, uint128 feesPaid, bool isSwapInBase) internal pure {
         // In zero liquidity curves, it makes no sense to assimilate, since
         // it will run prices to infinity.
         uint128 liq = CurveMath.activeLiquidity(curve);
-        if (liq == 0) { return; }
+        if (liq == 0) return;
 
         bool feesInBase = !isSwapInBase;
-        uint128 feesToLiq = shaveForPrecision(liq, curve.priceRoot_,
-                                              feesPaid, feesInBase);
-        uint64 inflator = calcLiqInflator(liq, curve.priceRoot_,
-                                          feesToLiq, feesInBase);
+        uint128 feesToLiq = shaveForPrecision(liq, curve.priceRoot_, feesPaid, feesInBase);
+        uint64 inflator = calcLiqInflator(liq, curve.priceRoot_, feesToLiq, feesInBase);
 
         if (inflator > 0) {
             stepToLiquidity(curve, inflator, feesInBase);
@@ -65,11 +62,14 @@ library CurveAssimilate {
      * @return The imputed percent growth to aggregate liquidity resulting from 
      *         assimilating these fees into the virtual reserves. Represented as
      *         Q16.48 fixed-point, where the result G is used as a (1+G) multiplier. */
-    function calcLiqInflator (uint128 liq, uint128 price, uint128 feesPaid,
-                              bool inBaseQty) private pure returns (uint64) {
+    function calcLiqInflator(uint128 liq, uint128 price, uint128 feesPaid, bool inBaseQty)
+        private
+        pure
+        returns (uint64)
+    {
         // First calculate the virtual reserves at the curve's current price...
         uint128 reserve = CurveMath.reserveAtPrice(liq, price, inBaseQty);
- 
+
         // ...Then use that to calculate how much the liqudity would grow assuming the
         // fees were added as reserves into an equivalent constant-product AMM curve.
         return calcReserveInflator(reserve, feesPaid);
@@ -79,16 +79,15 @@ library CurveAssimilate {
      *         change in the AMM curve's active liquidity.
      *
      * @dev Inflators above will 100% result in reverted transactions. */
-    function calcReserveInflator (uint128 reserve, uint128 feesPaid)
-        private pure returns (uint64 inflator) {
+    function calcReserveInflator(uint128 reserve, uint128 feesPaid) private pure returns (uint64 inflator) {
         // Short-circuit when virtual reserves are smaller than fees. This can only
         // occur when liquidity is extremely small, and so is economically
         // meanignless. But guarantees numerical stability.
-        if (reserve == 0 || feesPaid > reserve) { return 0; }
-        
+        if (reserve == 0 || feesPaid > reserve) return 0;
+
         uint128 nextReserve = reserve + feesPaid;
         uint64 inflatorRoot = nextReserve.compoundDivide(reserve);
-        
+
         // Since Liquidity is represented as Sqrt(X*Y) the growth rate of liquidity is
         // Sqrt(X'/X) where X' = X + delta(X)
         inflator = inflatorRoot.approxSqrtCompound();
@@ -113,10 +112,11 @@ library CurveAssimilate {
      *
      * @return The amount of reward fees available to assimilate into the liquidity
      *    curve after deducting the precision over-collaterilization allocation. */
-    function shaveForPrecision (uint128 liq, uint128 price, uint128 feesPaid,
-                                bool isFeesInBase)
-        private pure returns (uint128) {
-
+    function shaveForPrecision(uint128 liq, uint128 price, uint128 feesPaid, bool isFeesInBase)
+        private
+        pure
+        returns (uint128)
+    {
         // The precision buffer is calculated on curve precision, before curve liquidity
         // expands from fee assimilation. Therefore we upper bound the precision buffer to
         // account for maximum possible liquidity expansion.
@@ -128,14 +128,12 @@ library CurveAssimilate {
         // output swaps)
         //
         // See the require statement calcReserveInflator function, for where this check
-        // is enforced. 
+        // is enforced.
         uint128 MAX_LIQ_EXPANSION = 2;
 
-        uint128 bufferTokens = MAX_LIQ_EXPANSION * CurveMath.priceToTokenPrecision
-            (liq, price, isFeesInBase);
+        uint128 bufferTokens = MAX_LIQ_EXPANSION * CurveMath.priceToTokenPrecision(liq, price, isFeesInBase);
         unchecked {
-        return feesPaid <= bufferTokens ?
-            0 : feesPaid - bufferTokens; // Condition assures never underflow
+            return feesPaid <= bufferTokens ? 0 : feesPaid - bufferTokens; // Condition assures never underflow
         }
     }
 
@@ -160,13 +158,11 @@ library CurveAssimilate {
      * @param inflator The incremental growth in total curve liquidity contributed by this
      *                 swaps paid fees.
      * @param feesInBase If true, indicates swap paid fees in base token. */
-    function stepToLiquidity (CurveMath.CurveState memory curve,
-                              uint64 inflator, bool feesInBase) private pure {
-        curve.priceRoot_ = CompoundMath.compoundPrice
-            (curve.priceRoot_, inflator, feesInBase);
+    function stepToLiquidity(CurveMath.CurveState memory curve, uint64 inflator, bool feesInBase) private pure {
+        curve.priceRoot_ = CompoundMath.compoundPrice(curve.priceRoot_, inflator, feesInBase);
 
         // The formula for Liquidity is
-        //     L = A + C 
+        //     L = A + C
         //       = S * (1 + G) + C
         //   (where A is ambient liqudity, S is ambient seeds, G is ambient growth,
         //    and C is conc. liquidity)
@@ -183,8 +179,7 @@ library CurveAssimilate {
         // to ambient liquidity will be burned. Economically speaking, this is unlikely to happen
         // for any meaningful pool, but be aware. See the Ambient Rewards section of the
         // documentation at docs/CurveBound.md in the repo for more discussion.
-        curve.seedDeflator_ = curve.seedDeflator_
-            .compoundStack(inflator);
+        curve.seedDeflator_ = curve.seedDeflator_.compoundStack(inflator);
 
         // Now compute the increase in ambient seed rewards to concentrated liquidity.
         // Rewards stored as ambient seeds, but collected in the form of liquidity:
@@ -207,8 +202,7 @@ library CurveAssimilate {
         // the swap fees accumulated as concentrated liquidity rewards. (All concentrated rewards
         // are converted to ambient seeds.) To calculate we take the marginal increase in concentrated
         // rewards on this swap and multiply by the total amount of active concentrated liquidity.
-        uint128 newAmbientSeeds = uint256(curve.concLiq_.mulQ48(concRewards))
-            .toUint128();
+        uint128 newAmbientSeeds = uint256(curve.concLiq_.mulQ48(concRewards)).toUint128();
 
         // To be conservative in favor of over-collateralization, we want to round down the marginal
         // rewards.
@@ -227,11 +221,10 @@ library CurveAssimilate {
      *   for this, we have to shrink the rewards inflator by the precision unit's 
      *   fraction of the ambient injection. Thus guaranteeing that the adjusted rewards
      *   inflator under-promises relative to backed seeds. */
-    function roundDownConcRewards (uint64 concInflator, uint128 newAmbientSeeds)
-        private pure returns (uint64) {
+    function roundDownConcRewards(uint64 concInflator, uint128 newAmbientSeeds) private pure returns (uint64) {
         // No need to round down if the swap was too small for concentrated liquidity
         // to earn any rewards.
-        if (newAmbientSeeds == 0) { return 0; }
+        if (newAmbientSeeds == 0) return 0;
 
         // We always want to make sure that the rewards accumulator is conservatively
         // rounded down relative to the actual liquidity being added to the curve.
@@ -243,7 +236,6 @@ library CurveAssimilate {
         // Precision wise this all fits in 256-bit arithmetic, and is guaranteed to
         // cast to 64-bit result, since the result is always smaller than the original
         // inflator.
-        return uint64(uint256(concInflator) * uint256(newAmbientSeeds) /
-                      uint256(newAmbientSeeds + 1));
+        return uint64(uint256(concInflator) * uint256(newAmbientSeeds) / uint256(newAmbientSeeds + 1));
     }
 }

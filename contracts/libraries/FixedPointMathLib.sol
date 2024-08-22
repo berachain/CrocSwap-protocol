@@ -258,9 +258,7 @@ library FixedPointMathLib {
             // - The `1e18 / 2**96` factor for base conversion.
             // We do this all at once, with an intermediate result in `2**213`
             // basis, so the final right shift is always by a positive amount.
-            r = int256(
-                (uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k)
-            );
+            r = int256((uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k));
         }
     }
 
@@ -494,10 +492,7 @@ library FixedPointMathLib {
                         // Divide [p1 p0] by the factors of two.
                         // Shift in bits from `p1` into `p0`. For this we need
                         // to flip `t` such that it is `2**256 / t`.
-                        or(
-                            mul(sub(p1, gt(r, result)), add(div(sub(0, t), t), 1)),
-                            div(sub(result, r), t)
-                        ),
+                        or(mul(sub(p1, gt(r, result)), add(div(sub(0, t), t), 1)), div(sub(result, r), t)),
                         // inverse mod 2**256
                         mul(inv, sub(2, mul(d, inv)))
                     )
@@ -946,11 +941,7 @@ library FixedPointMathLib {
     }
 
     /// @dev Returns `x`, bounded to `minValue` and `maxValue`.
-    function clamp(uint256 x, uint256 minValue, uint256 maxValue)
-        internal
-        pure
-        returns (uint256 z)
-    {
+    function clamp(uint256 x, uint256 minValue, uint256 maxValue) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
             z := xor(x, mul(xor(x, minValue), gt(minValue, x)))

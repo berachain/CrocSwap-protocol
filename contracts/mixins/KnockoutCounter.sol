@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: GPL-3                                                          
+// SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import '../libraries/LiquidityMath.sol';
-import '../libraries/KnockoutLiq.sol';
-import './LevelBook.sol';
-import './PoolRegistry.sol';
-import './AgentMask.sol';
+import "../libraries/LiquidityMath.sol";
+import "../libraries/KnockoutLiq.sol";
+import "./LevelBook.sol";
+import "./PoolRegistry.sol";
+import "./AgentMask.sol";
 
 /* @title Knockout Counter
  * @notice Manages the knockout liquidity pivots and positions. Responsible for minting
@@ -27,10 +27,10 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
     /* @notice Emitted at any point a pivot is knocked out. User can use the history
      *         of these logs to reconstructo the Merkle history necessary to claim
      *         their fees. */
-    event CrocKnockoutCross (bytes32 indexed pool, int24 indexed tick, bool isBid,
-                             uint32 pivotTime, uint64 feeMileage, uint160 commitEntropy);
+    event CrocKnockoutCross(
+        bytes32 indexed pool, int24 indexed tick, bool isBid, uint32 pivotTime, uint64 feeMileage, uint160 commitEntropy
+    );
 
-    
     /* @notice Called when a given knockout pivot is crossed. Performs the book-keeping
      *         related to reseting the pivot object and committing the Merkle history.
      *         Does *not* adjust the liquidity on the bump point or curve, caller is
@@ -44,8 +44,7 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *              that price is moving down through the pivot)
      * @param tick The tick index of the knockout pivot.
      * @param feeMileage The in range fee mileage at the point the pivot was crossed. */
-    function crossKnockout (bytes32 pool, bool isBid, int24 tick, 
-                            uint64 feeGlobal) internal {
+    function crossKnockout(bytes32 pool, bool isBid, int24 tick, uint64 feeGlobal) internal {
         bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, isBid, tick);
         KnockoutLiq.KnockoutPivot storage pivot = knockoutPivots_[lvlKey];
         KnockoutLiq.KnockoutMerkle storage merkle = knockoutMerkles_[lvlKey];
@@ -54,27 +53,30 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
         uint64 feeRange = knockoutRangeLiq(pool, pivot, isBid, tick, feeGlobal);
 
         merkle.commitKnockout(pivot, feeRange);
-        emit CrocKnockoutCross(pool, tick, isBid, merkle.pivotTime_, merkle.feeMileage_,
-                               KnockoutLiq.commitEntropySalt());
+        emit CrocKnockoutCross(
+            pool, tick, isBid, merkle.pivotTime_, merkle.feeMileage_, KnockoutLiq.commitEntropySalt()
+        );
         pivot.deletePivot(); // Nice little SSTORE refund for the swapper
     }
 
     /* @notice Removes the liquidity at the AMM curve's bump points as part of a pivot
      *         being knocked out by a level cross. */
-    function knockoutRangeLiq (bytes32 pool, KnockoutLiq.KnockoutPivot memory pivot,
-                               bool isBid, int24 tick, uint64 feeGlobal)
-        private returns (uint64 feeRange) {
+    function knockoutRangeLiq(
+        bytes32 pool,
+        KnockoutLiq.KnockoutPivot memory pivot,
+        bool isBid,
+        int24 tick,
+        uint64 feeGlobal
+    ) private returns (uint64 feeRange) {
         // Unchecked because min/max tick are well within uint16 of int24 bounds
-        unchecked {            
-        int24 offset = int24(uint24(pivot.rangeTicks_));
-        int24 priceTick = isBid ? tick-1 : tick;
-        int24 lowerTick = isBid ? tick : tick - offset;
-        int24 upperTick = !isBid ? tick : tick + offset;
-        feeRange = removeBookLiq(pool, priceTick, lowerTick, upperTick,
-                                 pivot.lots_, feeGlobal);
+        unchecked {
+            int24 offset = int24(uint24(pivot.rangeTicks_));
+            int24 priceTick = isBid ? tick - 1 : tick;
+            int24 lowerTick = isBid ? tick : tick - offset;
+            int24 upperTick = !isBid ? tick : tick + offset;
+            feeRange = removeBookLiq(pool, priceTick, lowerTick, upperTick, pivot.lots_, feeGlobal);
         }
     }
-
 
     /* @notice Mints a new knockout liquidity position (or adds liquidity to a pre-
      *         existing position.
@@ -92,13 +94,16 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      * @return pivotTime  The time tranche of the pivot the liquidity was added to.
      * @return newPivot If true indicates that this is the first active liquidity at the
      *                  pivot. */
-    function addKnockoutLiq (bytes32 pool, uint8 knockoutBits,
-                             int24 curveTick, uint64 feeGlobal,
-                             KnockoutLiq.KnockoutPosLoc memory loc, uint96 lots)
-        internal returns (uint32 pivotTime, bool newPivot) {
+    function addKnockoutLiq(
+        bytes32 pool,
+        uint8 knockoutBits,
+        int24 curveTick,
+        uint64 feeGlobal,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint96 lots
+    ) internal returns (uint32 pivotTime, bool newPivot) {
         (pivotTime, newPivot) = injectPivot(pool, knockoutBits, loc, lots, curveTick);
-        uint64 feeRange = addBookLiq(pool, curveTick, loc.lowerTick_,
-                                     loc.upperTick_, lots, feeGlobal);
+        uint64 feeRange = addBookLiq(pool, curveTick, loc.lowerTick_, loc.upperTick_, lots, feeGlobal);
         if (newPivot) {
             markPivot(pool, loc);
         }
@@ -124,14 +129,17 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *                   removed from.
      * @return rewards  The concentrated liquidity rewards accumulated to the 
      *                  position. */
-    function rmKnockoutLiq (bytes32 pool, int24 curveTick, uint64 feeGlobal,
-                            KnockoutLiq.KnockoutPosLoc memory loc, uint96 lots)
-        internal returns (bool killsPivot, uint32 pivotTime, uint64 rewards) {
+    function rmKnockoutLiq(
+        bytes32 pool,
+        int24 curveTick,
+        uint64 feeGlobal,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint96 lots
+    ) internal returns (bool killsPivot, uint32 pivotTime, uint64 rewards) {
         (pivotTime, killsPivot) = recallPivot(pool, loc, lots);
-        if (killsPivot) { unmarkPivot(pool, loc); }
+        if (killsPivot) unmarkPivot(pool, loc);
 
-        uint64 feeRange = removeBookLiq(pool, curveTick, loc.lowerTick_,
-                                        loc.upperTick_, lots, feeGlobal);
+        uint64 feeRange = removeBookLiq(pool, curveTick, loc.lowerTick_, loc.upperTick_, lots, feeGlobal);
         rewards = removePosition(pool, loc, lots, feeRange, pivotTime);
     }
 
@@ -141,7 +149,7 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *      significant bit should *not* be treated as actual liquidity, but rather just
      *      an unrelated flag indicating that the level has a corresponding active 
      *      knockout pivot. */
-    function markPivot (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc) private {
+    function markPivot(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc) private {
         if (loc.isBid_) {
             BookLevel storage lvl = fetchLevel(pool, loc.lowerTick_);
             lvl.bidLots_ = lvl.bidLots_ | uint96(0x1);
@@ -153,7 +161,7 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
 
     /* @notice Removes the mark on the book level related to the presence of knockout 
      *         liquidity. */
-    function unmarkPivot (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc) private {
+    function unmarkPivot(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc) private {
         if (loc.isBid_) {
             unmarkPivot(pool, true, loc.lowerTick_);
         } else {
@@ -163,13 +171,13 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
 
     /* @notice Removes the mark on the book level related to the presence of knockout 
      *         liquidity. */
-    function unmarkPivot (bytes32 pool, bool isBid, int24 tick) private {
+    function unmarkPivot(bytes32 pool, bool isBid, int24 tick) private {
         BookLevel storage lvl = fetchLevel(pool, tick);
         if (isBid) {
             lvl.bidLots_ = lvl.bidLots_ & ~uint96(0x1);
         } else {
             lvl.askLots_ = lvl.askLots_ & ~uint96(0x1);
-        }        
+        }
     }
 
     /* @notice Claims the collateral and rewards for a position that has been fully 
@@ -187,11 +195,13 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *                 collateral at the knockout price *not* the current curve price).
      * @return rewards The in-range concentrated liquidity rewards earned by the position.
      */
-    function claimPostKnockout (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                                uint160 merkleRoot, uint256[] memory merkleProof)
-        internal returns (uint96 lots, uint64 rewards) {
-        (uint32 pivotTime, uint64 feeSnap) =
-            proveKnockout(pool, loc, merkleRoot, merkleProof);
+    function claimPostKnockout(
+        bytes32 pool,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint160 merkleRoot,
+        uint256[] memory merkleProof
+    ) internal returns (uint96 lots, uint64 rewards) {
+        (uint32 pivotTime, uint64 feeSnap) = proveKnockout(pool, loc, merkleRoot, merkleProof);
         (lots, rewards) = claimPosition(pool, loc, feeSnap, pivotTime);
     }
 
@@ -211,13 +221,13 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      * @return lots    The liquidity (in 1024-unit lots) claimable by the underlying 
      *                 position. Note that this liquidity should be converted to 
      *                 collateral at the knockout price *not* the current curve price).*/
-    function recoverPostKnockout (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                                  uint32 pivotTime)
-        internal returns (uint96 lots) {
+    function recoverPostKnockout(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc, uint32 pivotTime)
+        internal
+        returns (uint96 lots)
+    {
         confirmPivotDead(pool, loc, pivotTime);
-        (lots, ) = claimPosition(pool, loc, 0, pivotTime);
+        (lots,) = claimPosition(pool, loc, 0, pivotTime);
     }
-    
 
     /* @notice Inserts the tracking data for the individual position being minted.
      * @param pool The hash of the pool the liquidity applies to.
@@ -226,13 +236,18 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      * @param feeRange The cumulative fee mileage for the concentrated liquidity range
      *                 at current mint time.
      * @param pivotTime The time corresponding to the underlying pivot creation. */
-    function insertPosition (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                             uint96 lots, uint64 feeRange, uint32 pivotTime) private {
+    function insertPosition(
+        bytes32 pool,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint96 lots,
+        uint64 feeRange,
+        uint32 pivotTime
+    ) private {
         bytes32 posKey = loc.encodePosKey(pool, lockHolder_, pivotTime);
         KnockoutLiq.KnockoutPos storage pos = knockoutPos_[posKey];
 
         uint64 mileage = feeRange.blendMileage(lots, pos.feeMileage_, pos.lots_);
-        
+
         pos.lots_ += lots;
         pos.feeMileage_ = mileage;
         pos.timestamp_ = SafeCast.timeUint32();
@@ -247,16 +262,20 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *                 at current mint time.
      * @param pivotTime The time corresponding to the underlying pivot creation.
      * @return feeRewards The accumulated fee rewards rate on the position. */
-    function removePosition (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                             uint96 lots, uint64 feeRange, uint32 pivotTime)
-        private returns (uint64 feeRewards) {
+    function removePosition(
+        bytes32 pool,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint96 lots,
+        uint64 feeRange,
+        uint32 pivotTime
+    ) private returns (uint64 feeRewards) {
         bytes32 posKey = loc.encodePosKey(pool, lockHolder_, pivotTime);
         KnockoutLiq.KnockoutPos storage pos = knockoutPos_[posKey];
 
         feeRewards = feeRange.deltaRewardsRate(pos.feeMileage_);
         assertJitSafe(pos.timestamp_, pool);
         require(lots <= pos.lots_, "KB");
-        
+
         if (lots == pos.lots_) {
             // Get SSTORE refund on full burn
             pos.lots_ = 0;
@@ -277,9 +296,10 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      * @param pivotTime The time corresponding to the underlying pivot creation.
      * @return lots The amount of liquidity lots in the underlying position. 
      * @return feeRewards The accumulated fee rewards rate on the position. */
-    function claimPosition (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                            uint64 feeRange, uint32 pivotTime)
-        private returns (uint96 lots, uint64 feeRewards) {
+    function claimPosition(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc, uint64 feeRange, uint32 pivotTime)
+        private
+        returns (uint96 lots, uint64 feeRewards)
+    {
         bytes32 posKey = loc.encodePosKey(pool, lockHolder_, pivotTime);
         KnockoutLiq.KnockoutPos storage pos = knockoutPos_[posKey];
 
@@ -287,7 +307,7 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
         if (feeRange > 0) {
             feeRewards = feeRange - pos.feeMileage_;
         }
-        
+
         // Get SSTORE refund on full burn
         pos.lots_ = 0;
         pos.feeMileage_ = 0;
@@ -307,10 +327,13 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      * @return pivotTime The time tranche of the pivot the liquidity is added to. Either
      *                   the current time if liquidity creates a new pivot, or the 
      *                   timestamp of when the previous tranche was created. */
-    function injectPivot (bytes32 pool, uint8 knockoutBits,
-                          KnockoutLiq.KnockoutPosLoc memory loc,
-                          uint96 lots, int24 curveTick) private returns
-        (uint32 pivotTime, bool newPivot) {
+    function injectPivot(
+        bytes32 pool,
+        uint8 knockoutBits,
+        KnockoutLiq.KnockoutPosLoc memory loc,
+        uint96 lots,
+        int24 curveTick
+    ) private returns (uint32 pivotTime, bool newPivot) {
         bytes32 lvlKey = loc.encodePivotKey(pool);
         KnockoutLiq.KnockoutPivot storage pivot = knockoutPivots_[lvlKey];
         newPivot = (pivot.lots_ == 0);
@@ -318,7 +341,7 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
         // If mint represents the first position in a new pivot perorm book keeping
         // related to setting the time tranch, warming up the Merkle slot, and verifying
         // that the pivot position is valid relative to the pool's current parameters.
-        if (newPivot) {            
+        if (newPivot) {
             pivotTime = SafeCast.timeUint32();
             freshenMerkle(knockoutMerkles_[lvlKey]);
             loc.assertValidPos(curveTick, knockoutBits);
@@ -327,7 +350,6 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
             pivot.lots_ = lots;
             pivot.pivotTime_ = pivotTime;
             pivot.rangeTicks_ = loc.tickRange();
-            
         } else {
             pivot.lots_ += lots;
             pivotTime = pivot.pivotTime_;
@@ -344,11 +366,11 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *                 This amount could possibly be different than liq, so it's very 
      *                 important that this value is used to adjust the AMM curve. 
      * @return pivotTime The tranche timestamp of the current knockout pivot. */
-    function recallPivot (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                          uint96 lots) private returns
-        (uint32 pivotTime, bool killsPivot) {
-        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_,
-                                                    loc.knockoutTick());
+    function recallPivot(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc, uint96 lots)
+        private
+        returns (uint32 pivotTime, bool killsPivot)
+    {
+        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_, loc.knockoutTick());
         KnockoutLiq.KnockoutPivot storage pivot = knockoutPivots_[lvlKey];
         pivotTime = pivot.pivotTime_;
         require(lots <= pivot.lots_, "KB");
@@ -359,7 +381,6 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
             pivot.lots_ = 0;
             pivot.pivotTime_ = 0;
             pivot.rangeTicks_ = 0;
-
         } else {
             pivot.lots_ -= lots;
         }
@@ -367,15 +388,15 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
 
     /* @notice Call on the corresponding Merkle root when creating a new pivot at a 
      *         tick/time tranche. */
-    function freshenMerkle (KnockoutLiq.KnockoutMerkle storage merkle) private {
+    function freshenMerkle(KnockoutLiq.KnockoutMerkle storage merkle) private {
         // Knockout tranches are uniquely identified by block times. There is a
         // rare corner case where multiple knockouts are created, crossed and
         // created again at the same tick all within the same block/time.
         require(merkle.pivotTime_ != SafeCast.timeUint32(), "KT");
-            
+
         // Warm up the slot so that the SSTORE fresh is paid by the LP, not
         // the swapper. This means all Merkle histories begin with a root of 1
-        if(merkle.merkleRoot_ == 0) {
+        if (merkle.merkleRoot_ == 0) {
             merkle.merkleRoot_ = 1;
         }
     }
@@ -390,11 +411,8 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *         stamp as the most recent Merkle commitment. Therefore a pivot tranche
      *         has been knocked out if and only if the most recent Merkle commitment has
      *         an equal of greater timestamp. */
-    function confirmPivotDead (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                               uint32 pivotTime)
-        private view {
-        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_,
-                                                    loc.knockoutTick());
+    function confirmPivotDead(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc, uint32 pivotTime) private view {
+        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_, loc.knockoutTick());
         KnockoutLiq.KnockoutMerkle storage merkle = knockoutMerkles_[lvlKey];
         require(merkle.pivotTime_ >= pivotTime, "KA");
     }
@@ -407,13 +425,13 @@ contract KnockoutCounter is LevelBook, PoolRegistry, AgentMask {
      *                   being claimed.
      * @return feeSnap The in-range fee mileage at Merkle commitment time, i.e. when the
      *                 pivot was knocked out. */
-    function proveKnockout (bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc,
-                            uint160 root, uint256[] memory proof)
-        private view returns (uint32 pivotTime, uint64 feeSnap) {
-        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_,
-                                                    loc.knockoutTick());
+    function proveKnockout(bytes32 pool, KnockoutLiq.KnockoutPosLoc memory loc, uint160 root, uint256[] memory proof)
+        private
+        view
+        returns (uint32 pivotTime, uint64 feeSnap)
+    {
+        bytes32 lvlKey = KnockoutLiq.encodePivotKey(pool, loc.isBid_, loc.knockoutTick());
         KnockoutLiq.KnockoutMerkle storage merkle = knockoutMerkles_[lvlKey];
         (pivotTime, feeSnap) = merkle.proveHistory(root, proof);
     }
 }
-

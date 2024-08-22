@@ -3,15 +3,15 @@
 pragma solidity 0.8.19;
 pragma experimental ABIEncoderV2;
 
-import './TickMath.sol';
-import './LiquidityMath.sol';
-import './SafeCast.sol';
-import './CurveMath.sol';
-import './CurveAssimilate.sol';
-import './CurveRoll.sol';
-import './PoolSpecs.sol';
-import './Directives.sol';
-import './Chaining.sol';
+import "./TickMath.sol";
+import "./LiquidityMath.sol";
+import "./SafeCast.sol";
+import "./CurveMath.sol";
+import "./CurveAssimilate.sol";
+import "./CurveRoll.sol";
+import "./PoolSpecs.sol";
+import "./Directives.sol";
+import "./Chaining.sol";
 
 /* @title Swap Curve library.
  * @notice Library contains functionality for fully applying a swap directive to 
@@ -46,30 +46,32 @@ library SwapCurve {
      *    never move past this tick boundary in the call. Caller's responsibility is to 
      *    set this parameter in the correct direction. I.e. buys should be the boundary 
      *    from above and sells from below. Represented as a price tick index. */
-    function swapToLimit (CurveMath.CurveState memory curve,
-                          Chaining.PairFlow memory accum,
-                          Directives.SwapDirective memory swap,
-                          PoolSpecs.Pool memory pool, int24 bumpTick) pure internal {
+    function swapToLimit(
+        CurveMath.CurveState memory curve,
+        Chaining.PairFlow memory accum,
+        Directives.SwapDirective memory swap,
+        PoolSpecs.Pool memory pool,
+        int24 bumpTick
+    ) internal pure {
         uint128 limitPrice = determineLimit(bumpTick, swap.limitPrice_, swap.isBuy_);
         uint128 startPrice = curve.priceRoot_;
 
         (int128 paidBase, int128 paidQuote, uint128 paidProto) =
             bookExchFees(curve, swap.qty_, pool, swap.inBaseQty_, limitPrice);
         accum.accumSwap(swap.inBaseQty_, paidBase, paidQuote, paidProto);
-        
+
         // limitPrice is still valid even though curve has moved from ingesting liquidity
         // fees in bookExchFees(). That's because the collected fees are mathematically
         // capped at a fraction of the flow necessary to reach limitPrice. See
         // bookExchFees() comments. (This is also why we book fees before swapping, so we
         // don't run into the limitPrice when trying to ingest fees.)
-        (paidBase, paidQuote, swap.qty_) = swapOverCurve
-            (curve, swap.inBaseQty_, swap.isBuy_, swap.qty_, limitPrice);
+        (paidBase, paidQuote, swap.qty_) = swapOverCurve(curve, swap.inBaseQty_, swap.isBuy_, swap.qty_, limitPrice);
         accum.accumSwap(swap.inBaseQty_, paidBase, paidQuote, 0);
         assertPriceDirection(swap.isBuy_, curve, startPrice);
     }
 
     /* @notice Validates the invariant that the price change is in the direction of the swap. */
-    function assertPriceDirection (bool isBuy, CurveMath.CurveState memory curve, uint128 startPrice) pure private {
+    function assertPriceDirection(bool isBuy, CurveMath.CurveState memory curve, uint128 startPrice) private pure {
         require(isBuy ? curve.priceRoot_ >= startPrice : curve.priceRoot_ <= startPrice);
     }
 
@@ -95,10 +97,14 @@ library SwapCurve {
      *                to liquidity providers in the pool (in the opposite side tokens of
      *                the swap denomination).
      * @return protoFee The total fee accumulated as CrocSwap protocol fees. */
-    function calcFeeOverSwap (CurveMath.CurveState memory curve, uint128 swapQty,
-                              uint16 feeRate, uint8 protoTake,
-                              bool inBaseQty, uint128 limitPrice)
-        internal pure returns (uint128 liqFee, uint128 protoFee) {
+    function calcFeeOverSwap(
+        CurveMath.CurveState memory curve,
+        uint128 swapQty,
+        uint16 feeRate,
+        uint8 protoTake,
+        bool inBaseQty,
+        uint128 limitPrice
+    ) internal pure returns (uint128 liqFee, uint128 protoFee) {
         uint128 flow = curve.calcLimitCounter(swapQty, inBaseQty, limitPrice);
         (liqFee, protoFee) = calcFeeOverFlow(flow, feeRate, protoTake);
     }
@@ -127,11 +133,13 @@ library SwapCurve {
      * @return paidQuote The amount of quote-side token flow for this leg of the swap.
      * @return qtyLeft The total amount of swapQty left after this leg executes. If swap
      *                 fully executes, this value will be zero. */
-    function swapOverCurve (CurveMath.CurveState memory curve,
-                            bool inBaseQty, bool isBuy, uint128 swapQty,
-                            uint128 limitPrice) pure private
-        returns (int128 paidBase, int128 paidQuote, uint128 qtyLeft) {
-
+    function swapOverCurve(
+        CurveMath.CurveState memory curve,
+        bool inBaseQty,
+        bool isBuy,
+        uint128 swapQty,
+        uint128 limitPrice
+    ) private pure returns (int128 paidBase, int128 paidQuote, uint128 qtyLeft) {
         // Invariant check swap direction matches price direction
         require(isBuy ? limitPrice >= curve.priceRoot_ : limitPrice <= curve.priceRoot_);
 
@@ -139,14 +147,11 @@ library SwapCurve {
         bool hitsLimit = realFlows < swapQty;
 
         if (hitsLimit) {
-            (paidBase, paidQuote, qtyLeft) = curve.rollPrice
-                (limitPrice, inBaseQty, isBuy, swapQty);
+            (paidBase, paidQuote, qtyLeft) = curve.rollPrice(limitPrice, inBaseQty, isBuy, swapQty);
             assertPriceEndStable(curve, qtyLeft, limitPrice);
-
         } else {
             uint128 startPrice = curve.priceRoot_;
-            (paidBase, paidQuote, qtyLeft) = curve.rollFlow
-                (realFlows, inBaseQty, isBuy, swapQty);
+            (paidBase, paidQuote, qtyLeft) = curve.rollFlow(realFlows, inBaseQty, isBuy, swapQty);
             assertFlowEndStable(curve, qtyLeft, isBuy, limitPrice);
             assertPriceDirection(isBuy, curve, startPrice);
         }
@@ -164,12 +169,11 @@ library SwapCurve {
      *
      * In both cases the condition is so astronomically rare that we just crash the 
      * transaction. */
-    function assertFlowEndStable (CurveMath.CurveState memory curve,
-                                  uint128 qtyLeft, bool isBuy,
-                                  uint128 limitPrice) pure private {
-        bool insideLimit = isBuy ?
-            curve.priceRoot_ < limitPrice :
-            curve.priceRoot_ > limitPrice;
+    function assertFlowEndStable(CurveMath.CurveState memory curve, uint128 qtyLeft, bool isBuy, uint128 limitPrice)
+        private
+        pure
+    {
+        bool insideLimit = isBuy ? curve.priceRoot_ < limitPrice : curve.priceRoot_ > limitPrice;
         bool hasNone = qtyLeft == 0;
         require(insideLimit && hasNone, "RF");
     }
@@ -182,8 +186,10 @@ library SwapCurve {
      * In this case the corner case would mean it would fail to kick in new liquidity 
      * that's required by reaching the tick bump limit. Again this is so astronomically 
      * rare for non-pathological curves that we just crash the transaction. */
-    function assertPriceEndStable (CurveMath.CurveState memory curve,
-                                   uint128 qtyLeft, uint128 limitPrice) pure private {
+    function assertPriceEndStable(CurveMath.CurveState memory curve, uint128 qtyLeft, uint128 limitPrice)
+        private
+        pure
+    {
         bool atLimit = curve.priceRoot_ == limitPrice;
         bool hasRemaining = qtyLeft > 0;
         require(atLimit && hasRemaining, "RP");
@@ -193,13 +199,12 @@ library SwapCurve {
      *    specified limit, tick liquidity bump boundary on the locally stable AMM curve,
      *    and the numerical boundaries of the price field. Always picks the value that's
      *    most to the inside of the swap direction. */
-    function determineLimit (int24 bumpTick, uint128 limitPrice, bool isBuy)
-        pure private returns (uint128) {
+    function determineLimit(int24 bumpTick, uint128 limitPrice, bool isBuy) private pure returns (uint128) {
         unchecked {
-        uint128 bounded = boundLimit(bumpTick, limitPrice, isBuy);
-        if (bounded < TickMath.MIN_SQRT_RATIO)  return TickMath.MIN_SQRT_RATIO;
-        if (bounded >= TickMath.MAX_SQRT_RATIO) return TickMath.MAX_SQRT_RATIO - 1; // Well above 0, cannot underflow
-        return bounded;
+            uint128 bounded = boundLimit(bumpTick, limitPrice, isBuy);
+            if (bounded < TickMath.MIN_SQRT_RATIO) return TickMath.MIN_SQRT_RATIO;
+            if (bounded >= TickMath.MAX_SQRT_RATIO) return TickMath.MAX_SQRT_RATIO - 1; // Well above 0, cannot underflow
+            return bounded;
         }
     }
 
@@ -218,24 +223,23 @@ library SwapCurve {
      *      ------X******************************************+X-----------------
      *            |                                          |
      *     Min liquidity prce                         Max liquidity price
-     */ 
-    function boundLimit (int24 bumpTick, uint128 limitPrice, bool isBuy)
-        pure private returns (uint128) {
+     */
+    function boundLimit(int24 bumpTick, uint128 limitPrice, bool isBuy) private pure returns (uint128) {
         unchecked {
-        if (bumpTick <= TickMath.MIN_TICK || bumpTick >= TickMath.MAX_TICK) {
-            return limitPrice;
-        } else if (isBuy) {
-            /* See comment above. Upper bound liquidity is last active at the price one unit
+            if (bumpTick <= TickMath.MIN_TICK || bumpTick >= TickMath.MAX_TICK) {
+                return limitPrice;
+            } else if (isBuy) {
+                /* See comment above. Upper bound liquidity is last active at the price one unit
              * below the upper tick price. */
-            uint128 TICK_STEP_SHAVE_DOWN = 1;
+                uint128 TICK_STEP_SHAVE_DOWN = 1;
 
-            // Valid uint128 root prices are always well above 0.
-            uint128 bumpPrice = TickMath.getSqrtRatioAtTick(bumpTick) - TICK_STEP_SHAVE_DOWN;
-            return bumpPrice < limitPrice ? bumpPrice : limitPrice;
-        } else {
-            uint128 bumpPrice = TickMath.getSqrtRatioAtTick(bumpTick);
-            return bumpPrice > limitPrice ? bumpPrice : limitPrice;
-        }
+                // Valid uint128 root prices are always well above 0.
+                uint128 bumpPrice = TickMath.getSqrtRatioAtTick(bumpTick) - TICK_STEP_SHAVE_DOWN;
+                return bumpPrice < limitPrice ? bumpPrice : limitPrice;
+            } else {
+                uint128 bumpPrice = TickMath.getSqrtRatioAtTick(bumpTick);
+                return bumpPrice > limitPrice ? bumpPrice : limitPrice;
+            }
         }
     }
 
@@ -250,13 +254,16 @@ library SwapCurve {
      *   curve, they'll tend to be very close. Getting fee exactly correct doesn't 
      *   matter, and either over or undershooting is fine from a collateral stability 
      *   perspective. */
-    function bookExchFees (CurveMath.CurveState memory curve,
-                           uint128 swapQty, PoolSpecs.Pool memory pool,
-                           bool inBaseQty, uint128 limitPrice) pure private
-        returns (int128, int128, uint128) {
-        (uint128 liqFees, uint128 exchFees) = calcFeeOverSwap
-            (curve, swapQty, pool.feeRate_, pool.protocolTake_, inBaseQty, limitPrice);
-                
+    function bookExchFees(
+        CurveMath.CurveState memory curve,
+        uint128 swapQty,
+        PoolSpecs.Pool memory pool,
+        bool inBaseQty,
+        uint128 limitPrice
+    ) private pure returns (int128, int128, uint128) {
+        (uint128 liqFees, uint128 exchFees) =
+            calcFeeOverSwap(curve, swapQty, pool.feeRate_, pool.protocolTake_, inBaseQty, limitPrice);
+
         /* We can guarantee that the price shift associated with the liquidity
          * assimilation is safe. The limit price boundary is by definition within the
          * tick price boundary of the locally stable AMM curve (see determineLimit()
@@ -270,13 +277,15 @@ library SwapCurve {
 
     /* @notice Correctly applies the liquidity and protocol fees to the correct side in
      *         in th pair, given how the swap is denominated. */
-    function assignFees (uint128 liqFees, uint128 exchFees, bool inBaseQty)
-        pure private returns (int128 paidBase, int128 paidQuote,
-                              uint128 paidProto) {
+    function assignFees(uint128 liqFees, uint128 exchFees, bool inBaseQty)
+        private
+        pure
+        returns (int128 paidBase, int128 paidQuote, uint128 paidProto)
+    {
         unchecked {
             // Safe for unchecked because total fees are always previously calculated in
             // 128-bit space
-            uint128 totalFees = liqFees + exchFees; 
+            uint128 totalFees = liqFees + exchFees;
 
             if (inBaseQty) {
                 paidQuote = totalFees.toInt128Sign();
@@ -289,13 +298,16 @@ library SwapCurve {
 
     /* @notice Given a fixed flow and a fee rate, calculates the owed liquidty and 
      *         protocol fees. */
-    function calcFeeOverFlow (uint128 flow, uint16 feeRate, uint8 protoProp)
-        private pure returns (uint128 liqFee, uint128 protoFee) {
+    function calcFeeOverFlow(uint128 flow, uint16 feeRate, uint8 protoProp)
+        private
+        pure
+        returns (uint128 liqFee, uint128 protoFee)
+    {
         unchecked {
             uint256 FEE_BP_MULT = 1_000_000;
-            
+
             // Guaranteed to fit in 256 bit arithmetic. Safe to cast back to uint128
-            // because fees will never be larger than the underlying flow.            
+            // because fees will never be larger than the underlying flow.
             uint256 totalFee = (uint256(flow) * feeRate) / FEE_BP_MULT;
             protoFee = uint128(totalFee * protoProp / 256);
             liqFee = uint128(totalFee) - protoFee;

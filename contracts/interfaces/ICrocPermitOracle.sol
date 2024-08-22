@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-3 
+// SPDX-License-Identifier: GPL-3
 
 pragma solidity 0.8.19;
 
-import '../libraries/Directives.sol';
+import "../libraries/Directives.sol";
 
 /* @notice Standard interface for a permit oracle to be used by a permissioned pool. 
  * 
@@ -16,7 +16,6 @@ import '../libraries/Directives.sol';
  *      no longer active order does not affect the liquidity or state of the curve, permit
  *      oracles have no economic reason to restrict knockout claims/recovers. */
 interface ICrocPermitOracle {
-
     /* @notice Verifies whether a given user is permissioned to perform an arbitrary 
      *          action on the pool.
      *
@@ -37,13 +36,16 @@ interface ICrocPermitOracle {
      *                      is defined in terms of N-1 (because 0 is already used to indicate failure).
      *                      Hence return value of 1 indicates a discount of 0, return value of 2 
      *                      indicates discount of 0.0001%, return value of 3 is 0.0002%, and so on */
-    function checkApprovedForCrocPool (address user, address sender,
-                                       address base, address quote,
-                                       Directives.AmbientDirective calldata ambient,
-                                       Directives.SwapDirective calldata swap,
-                                       Directives.ConcentratedDirective[] calldata concs,
-                                       uint16 poolFee)
-        external returns (uint16 discount);
+    function checkApprovedForCrocPool(
+        address user,
+        address sender,
+        address base,
+        address quote,
+        Directives.AmbientDirective calldata ambient,
+        Directives.SwapDirective calldata swap,
+        Directives.ConcentratedDirective[] calldata concs,
+        uint16 poolFee
+    ) external returns (uint16 discount);
 
     /* @notice Verifies whether a given user is permissioned to perform a swap on the pool
      *
@@ -65,11 +67,16 @@ interface ICrocPermitOracle {
      *                      is defined in terms of N-1 (because 0 is already used to indicate failure).
      *                      Hence return value of 1 indicates a discount of 0, return value of 2 
      *                      indicates discount of 0.0001%, return value of 3 is 0.0002%, and so on */
-    function checkApprovedForCrocSwap (address user, address sender,
-                                       address base, address quote,
-                                       bool isBuy, bool inBaseQty, uint128 qty,
-                                       uint16 poolFee)
-        external returns (uint16 discount);
+    function checkApprovedForCrocSwap(
+        address user,
+        address sender,
+        address base,
+        address quote,
+        bool isBuy,
+        bool inBaseQty,
+        uint128 qty,
+        uint16 poolFee
+    ) external returns (uint16 discount);
 
     /* @notice Verifies whether a given user is permissioned to mint liquidity
      *         on the pool.
@@ -86,10 +93,15 @@ interface ICrocPermitOracle {
      *
      * @returns       Returns true if action is permitted. If false, CrocSwap will revert
      *                the transaction. */
-    function checkApprovedForCrocMint (address user, address sender,
-                                       address base, address quote,
-                                       int24 bidTick, int24 askTick, uint128 liq)
-        external returns (bool);
+    function checkApprovedForCrocMint(
+        address user,
+        address sender,
+        address base,
+        address quote,
+        int24 bidTick,
+        int24 askTick,
+        uint128 liq
+    ) external returns (bool);
 
     /* @notice Verifies whether a given user is permissioned to burn liquidity
      *         on the pool.
@@ -106,10 +118,15 @@ interface ICrocPermitOracle {
      *
      * @returns       Returns true if action is permitted. If false, CrocSwap will revert
      *                the transaction. */
-    function checkApprovedForCrocBurn (address user, address sender,
-                                       address base, address quote,
-                                       int24 bidTick, int24 askTick, uint128 liq)
-        external returns (bool);
+    function checkApprovedForCrocBurn(
+        address user,
+        address sender,
+        address base,
+        address quote,
+        int24 bidTick,
+        int24 askTick,
+        uint128 liq
+    ) external returns (bool);
 
     /* @notice Verifies whether a given user is permissioned to initialize a pool
      *         attached to this oracle.
@@ -123,9 +140,9 @@ interface ICrocPermitOracle {
      *
      * @returns       Returns true if action is permitted. If false, CrocSwap will revert
      *                the transaction, and pool will not be initialized. */
-    function checkApprovedForCrocInit (address user, address sender,
-                                       address base, address quote, uint256 poolIdx)
-        external returns (bool);
+    function checkApprovedForCrocInit(address user, address sender, address base, address quote, uint256 poolIdx)
+        external
+        returns (bool);
 
     /* @notice Just used to validate the contract address at pool creation time. */
     function acceptsPermitOracle() external returns (bool);

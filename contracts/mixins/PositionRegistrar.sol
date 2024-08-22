@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: GPL-3 
+// SPDX-License-Identifier: GPL-3
 
 pragma solidity 0.8.19;
 
-import '../libraries/SafeCast.sol';
-import '../libraries/LiquidityMath.sol';
-import '../libraries/CompoundMath.sol';
-import './StorageLayout.sol';
-import './PoolRegistry.sol';
+import "../libraries/SafeCast.sol";
+import "../libraries/LiquidityMath.sol";
+import "../libraries/CompoundMath.sol";
+import "./StorageLayout.sol";
+import "./PoolRegistry.sol";
 
 /* @title Position registrar mixin
  * @notice Tracks the individual positions of liquidity miners, including fee 
@@ -32,30 +32,32 @@ contract PositionRegistrar is PoolRegistry {
      * updating 6. */
 
     /* @notice Hashes the owner of an ambient liquidity position to the position key. */
-    function encodePosKey (address owner, bytes32 poolIdx)
-        internal pure returns (bytes32) {
+    function encodePosKey(address owner, bytes32 poolIdx) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(owner, poolIdx));
     }
 
     /* @notice Hashes the owner and concentrated liquidity range to the position key. */
-    function encodePosKey (address owner, bytes32 poolIdx,
-                           int24 lowerTick, int24 upperTick)
-        internal pure returns (bytes32) {
+    function encodePosKey(address owner, bytes32 poolIdx, int24 lowerTick, int24 upperTick)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(owner, poolIdx, lowerTick, upperTick));
     }
 
     /* @notice Returns the current position associated with the owner/range. If nothing
      *         exists the result will have zero liquidity. */
-    function lookupPosition (address owner, bytes32 poolIdx, int24 lowerTick,
-                               int24 upperTick)
-        internal view returns (RangePosition72 storage) {
+    function lookupPosition(address owner, bytes32 poolIdx, int24 lowerTick, int24 upperTick)
+        internal
+        view
+        returns (RangePosition72 storage)
+    {
         return positions72_[encodePosKey(owner, poolIdx, lowerTick, upperTick)];
     }
 
     /* @notice Returns the current position associated with the owner's ambient 
      *         position. If nothing exists the result will have zero liquidity. */
-    function lookupPosition (address owner, bytes32 poolIdx)
-        internal view returns (AmbientPosition storage) {
+    function lookupPosition(address owner, bytes32 poolIdx) internal view returns (AmbientPosition storage) {
         return ambPositions_[encodePosKey(owner, poolIdx)];
     }
 
@@ -78,9 +80,14 @@ contract PositionRegistrar is PoolRegistry {
      *
      * @return rewards The rewards accumulated between the current and last checkpoined
      *                 fee mileage. */
-    function burnPosLiq (address owner, bytes32 poolIdx, int24 lowerTick,
-                         int24 upperTick, uint128 burnLiq, uint72 feeMileage)
-        internal returns (uint64) {
+    function burnPosLiq(
+        address owner,
+        bytes32 poolIdx,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 burnLiq,
+        uint72 feeMileage
+    ) internal returns (uint64) {
         RangePosition72 storage pos = lookupPosition(owner, poolIdx, lowerTick, upperTick);
         assertJitSafe(pos.timestamp_, poolIdx);
         return decrementLiq(pos, burnLiq, feeMileage);
@@ -96,9 +103,10 @@ contract PositionRegistrar is PoolRegistry {
      *
      * @return burnSeeds The total number of ambient seeds that have been removed with
      *                   this operation. */
-    function burnPosLiq (address owner, bytes32 poolIdx, uint128 burnLiq,
-                         uint64 ambientGrowth)
-        internal returns (uint128 burnSeeds) {
+    function burnPosLiq(address owner, bytes32 poolIdx, uint128 burnLiq, uint64 ambientGrowth)
+        internal
+        returns (uint128 burnSeeds)
+    {
         AmbientPosition storage pos = lookupPosition(owner, poolIdx);
         burnSeeds = burnLiq.deflateLiqSeed(ambientGrowth);
 
@@ -115,9 +123,10 @@ contract PositionRegistrar is PoolRegistry {
 
     /* @notice Decrements a range order position with the amount of liquidity being
      *         burned, and calculates the incremental rewards mileage. */
-    function decrementLiq (RangePosition72 storage pos,
-                           uint128 burnLiq, uint72 feeMileage) internal returns
-        (uint64 rewards) {
+    function decrementLiq(RangePosition72 storage pos, uint128 burnLiq, uint72 feeMileage)
+        internal
+        returns (uint64 rewards)
+    {
         uint128 liq = pos.liquidity_;
         uint128 nextLiq = LiquidityMath.minusDelta(liq, burnLiq);
 
@@ -129,7 +138,7 @@ contract PositionRegistrar is PoolRegistry {
             pos.liquidity_ = nextLiq;
             // No need to adjust the position's mileage checkpoint. Rewards are in per
             // unit of liquidity, so the pro-rata rewards of the remaining liquidity
-            // (if any) remain unnaffected. 
+            // (if any) remain unnaffected.
         } else {
             // Solidity optimizer should convert this to a single refunded SSTORE
             pos.liquidity_ = 0;
@@ -149,9 +158,10 @@ contract PositionRegistrar is PoolRegistry {
      * @param feeMileage The current accumulated fee rewards rate for the position range
      *
      * @return rewards The total number of ambient seeds to collect as rewards */
-    function harvestPosLiq (address owner, bytes32 poolIdx, int24 lowerTick,
-                            int24 upperTick, uint72 feeMileage)
-        internal returns (uint128 rewards) {        
+    function harvestPosLiq(address owner, bytes32 poolIdx, int24 lowerTick, int24 upperTick, uint72 feeMileage)
+        internal
+        returns (uint128 rewards)
+    {
         RangePosition72 storage pos = lookupPosition(owner, poolIdx, lowerTick, upperTick);
         uint72 oldMileage = pos.feeMileage_;
 
@@ -168,8 +178,7 @@ contract PositionRegistrar is PoolRegistry {
     /* @notice Marks a flag on a speciic position that indicates that it's liquidity
      *         is atomic. I.e. the position size cannot be partially reduced, only
      *         removed entirely. */
-    function markPosAtomic (address owner, bytes32 poolIdx,
-                            int24 lowTick, int24 highTick) internal {
+    function markPosAtomic(address owner, bytes32 poolIdx, int24 lowTick, int24 highTick) internal {
         RangePosition72 storage pos = lookupPosition(owner, poolIdx, lowTick, highTick);
         pos.atomicLiq_ = true;
     }
@@ -187,12 +196,18 @@ contract PositionRegistrar is PoolRegistry {
      *               previously exists, position will be created.
      * @param feeMileage The up-to-date fee mileage associated with the range. If the
      *                   position will be checkpointed with this value. */
-    function mintPosLiq (address owner, bytes32 poolIdx, int24 lowerTick,
-                         int24 upperTick, uint128 liqAdd, uint72 feeMileage) internal {
+    function mintPosLiq(
+        address owner,
+        bytes32 poolIdx,
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 liqAdd,
+        uint72 feeMileage
+    ) internal {
         RangePosition72 storage pos = lookupPosition(owner, poolIdx, lowerTick, upperTick);
         incrementPosLiq(pos, liqAdd, feeMileage);
     }
-    
+
     /* @notice Adds ambient liquidity to a give position, creating a new position tracker
      *         if necessry.
      *         
@@ -203,16 +218,17 @@ contract PositionRegistrar is PoolRegistry {
      *
      * @return seeds The total number of ambient seeds that this incremental liquidity
      *               corresponds to. */
-    function mintPosLiq (address owner, bytes32 poolIdx, uint128 liqAdd,
-                         uint64 ambientGrowth) internal returns (uint128 seeds) {
+    function mintPosLiq(address owner, bytes32 poolIdx, uint128 liqAdd, uint64 ambientGrowth)
+        internal
+        returns (uint128 seeds)
+    {
         AmbientPosition storage pos = lookupPosition(owner, poolIdx);
         seeds = liqAdd.deflateLiqSeed(ambientGrowth);
         pos.seeds_ = pos.seeds_.addLiq(seeds);
         pos.timestamp_ = SafeCast.timeUint32(); // Increase liquidity loses time priority.
     }
 
-    function incrementPosLiq (RangePosition72 storage pos, uint128 liqAdd,
-                              uint72 feeMileage) private {
+    function incrementPosLiq(RangePosition72 storage pos, uint128 liqAdd, uint72 feeMileage) private {
         uint128 liq = pos.liquidity_;
         uint72 oldMileage;
 
@@ -225,7 +241,7 @@ contract PositionRegistrar is PoolRegistry {
         uint128 liqNext = liq.addLiq(liqAdd);
         uint72 mileage = feeMileage.blendMileage72(liqAdd, oldMileage, liq);
         uint32 stamp = SafeCast.timeUint32();
-        
+
         // Below should get optimized to a single SSTORE...
         pos.liquidity_ = liqNext;
         pos.feeMileage_ = mileage;

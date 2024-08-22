@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3
 pragma solidity 0.8.19;
-    
+
 import "../libraries/Encoding.sol";
 import "../libraries/Directives.sol";
 
@@ -12,19 +12,17 @@ contract TestEncoding {
     Directives.SwapDirective public swap;
     Directives.AmbientDirective public ambientOpen;
     Directives.ConcentratedDirective public bookend;
-    
+
     uint256 public poolIdx;
     int24 public openTick;
-    
-    
-    function testEncodeHop (uint8 idx, bytes calldata input) public {
+
+    function testEncodeHop(uint8 idx, bytes calldata input) public {
         Directives.OrderDirective memory directive = OrderEncoding.decodeOrder(input);
         settleHop = directive.hops_[idx].settle_;
         priceImprove = directive.hops_[idx].improve_;
     }
 
-    function testEncodePool (uint8 pairPos, uint8 poolPos,
-                             bytes calldata input) public {
+    function testEncodePool(uint8 pairPos, uint8 poolPos, bytes calldata input) public {
         Directives.OrderDirective memory dir = OrderEncoding.decodeOrder(input);
         poolIdx = dir.hops_[pairPos].pools_[poolPos].poolIdx_;
         swap = dir.hops_[pairPos].pools_[poolPos].swap_;
@@ -32,14 +30,13 @@ contract TestEncoding {
         chaining = dir.hops_[pairPos].pools_[poolPos].chain_;
     }
 
-    function testEncodePassive (uint8 pairPos, uint8 poolPos, uint8 concPos,
-                                bytes calldata input) public {
+    function testEncodePassive(uint8 pairPos, uint8 poolPos, uint8 concPos, bytes calldata input) public {
         Directives.OrderDirective memory dir = OrderEncoding.decodeOrder(input);
         bookend = dir.hops_[pairPos].pools_[poolPos].conc_[concPos];
     }
 
-    function testEncodeOpen (bytes calldata input) public {
+    function testEncodeOpen(bytes calldata input) public {
         Directives.OrderDirective memory directive = OrderEncoding.decodeOrder(input);
-        settleOpen = directive.open_;        
+        settleOpen = directive.open_;
     }
 }

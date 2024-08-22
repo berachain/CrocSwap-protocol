@@ -21,7 +21,6 @@
 pragma solidity ^0.8.19;
 
 library SwapHelpers {
-
     /* @notice A single leg of a swap, specifying the pool to use, the tokens to swap,
      *
      * @param poolIdx The index of the pool to use for the swap.

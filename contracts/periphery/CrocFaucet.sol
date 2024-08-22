@@ -2,10 +2,9 @@
 
 pragma solidity ^0.8.4;
 
-import '../interfaces/IERC20Minimal.sol';
+import "../interfaces/IERC20Minimal.sol";
 
 contract CrocFaucet {
-
     struct Payout {
         uint256 walletPay_;
         uint256 exchPay_;
@@ -15,21 +14,21 @@ contract CrocFaucet {
     address public admin_;
     bool public locked_;
 
-    constructor (address admin) {
+    constructor(address admin) {
         admin_ = admin;
     }
 
-    function changeAdmin (address admin) adminOnly public {
+    function changeAdmin(address admin) public adminOnly {
         admin_ = admin;
     }
 
-    function setPayout (address recv, address[] calldata tokens) holdLock public {
-        for (uint i = 0; i < tokens.length; ++i) {
+    function setPayout(address recv, address[] calldata tokens) public holdLock {
+        for (uint256 i = 0; i < tokens.length; ++i) {
             Payout memory payout = payouts_[tokens[i]];
 
             if (payout.walletPay_ > 0) {
                 if (tokens[i] == address(0x0)) {
-                    (bool success, ) = recv.call{value: payout.walletPay_}("");
+                    (bool success,) = recv.call{value: payout.walletPay_}("");
                     require(success, "Ethereum transfer failed");
                 } else {
                     IERC20Minimal(tokens[i]).transfer(recv, payout.walletPay_);

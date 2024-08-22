@@ -8,31 +8,34 @@ import "../interfaces/ICrocLpConduit.sol";
 import "../interfaces/IContractWithName.sol";
 
 contract CrocLpErc20 is ERC20, ICrocLpConduit {
-
     address public immutable factory;
     bytes32 public poolHash;
     address public baseToken;
     address public quoteToken;
     uint256 public poolType;
-    
-    constructor () ERC20 ("LP-Bex", 18) {
+
+    constructor() ERC20("LP-Bex", 18) {
         factory = msg.sender;
     }
-    
-    function depositCrocLiq (address sender, bytes32 pool,
-                             int24 lowerTick, int24 upperTick, uint128 seeds,
-                             uint72) public override returns (bool) {
+
+    function depositCrocLiq(address sender, bytes32 pool, int24 lowerTick, int24 upperTick, uint128 seeds, uint72)
+        public
+        override
+        returns (bool)
+    {
         require(pool == poolHash, "Wrong pool");
-        require(msg.sender == factory, 'A'); // sufficient check
+        require(msg.sender == factory, "A"); // sufficient check
         _mint(sender, seeds);
         return true;
     }
 
-    function withdrawCrocLiq (address sender, bytes32 pool,
-                              int24 lowerTick, int24 upperTick, uint128 seeds,
-                              uint72) public override returns (bool) {
+    function withdrawCrocLiq(address sender, bytes32 pool, int24 lowerTick, int24 upperTick, uint128 seeds, uint72)
+        public
+        override
+        returns (bool)
+    {
         require(pool == poolHash, "Wrong pool");
-        require(msg.sender == factory, 'A'); // sufficient check
+        require(msg.sender == factory, "A"); // sufficient check
         _burn(sender, seeds);
         return true;
     }
@@ -44,7 +47,7 @@ contract CrocLpErc20 is ERC20, ICrocLpConduit {
         // will never be 0x0 because native ETH will always be the base side of
         // the pair.
         require(_quote > _base, "Invalid Token Pair");
-        require(msg.sender == factory, 'A'); // sufficient check
+        require(msg.sender == factory, "A"); // sufficient check
         string memory tokenName = name;
 
         try IContractWithName(_base).symbol() returns (string memory baseName) {
