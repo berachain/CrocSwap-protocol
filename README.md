@@ -3,7 +3,7 @@ Decentralized exchange with concentrated liquidity and low gas fees
 
 Frontend available at 
 
-https://ambient.finance
+[Ambient Finance](https://ambient.finance)
 
 ## Installation
 
