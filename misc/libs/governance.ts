@@ -45,44 +45,29 @@ export interface GovernanceResolution {
     timelockCall: TimelockCalls
 }
 
-export async function opsResolution (addrs: CrocAddrs, cmd: CrocProtocolCmd, 
-    delay: number, tag:string): Promise<GovernanceResolution> {
-    const timelock = await refContract("TimelockAccepts", addrs.govern.timelockOps) as TimelockAccepts
-    const policy = await refContract("CrocPolicy", addrs.policy) as CrocPolicy
-
-    let policyCall = await policy.populateTransaction.opsResolution(addrs.dex, 
-        cmd.callpath, cmd.protocolCmd)
-    let timelockCalls = await populateTimelockCalls(timelock, addrs.policy, 
-        policyCall.data as string, delay)
-
+async function resolutionHelper(type: "ops" | "treasury", addrs: CrocAddrs, cmd: CrocProtocolCmd, delay: number, tag: string): Promise<GovernanceResolution> {
+    const timelock = await refContract("TimelockAccepts", type === "ops" ? addrs.govern.timelockOps : addrs.govern.timelockTreasury) as TimelockAccepts;
+    const policy = await refContract("CrocPolicy", addrs.policy) as CrocPolicy;
+    const policyCall = await policy.populateTransaction[type + "Resolution"](addrs.dex, cmd.callpath, cmd.protocolCmd, cmd.sudo ? cmd.sudo : false);
+    const timelockCalls = await populateTimelockCalls(timelock, addrs.policy, policyCall.data as string, delay);
     return printResolution({
-        resolutionType: "ops",
+        resolutionType: type,
         protocolCmd: cmd,
         policyContract: addrs.policy,
         dexContract: addrs.dex,
-        multisigOrigin: addrs.govern.multisigOps,
+        multisigOrigin: type === "ops" ? addrs.govern.multisigOps : addrs.govern.multisigTreasury,
         timelockCall: await timelockCalls,
-    }, tag)
+    }, tag);
+}
+
+export async function opsResolution (addrs: CrocAddrs, cmd: CrocProtocolCmd, 
+    delay: number, tag:string): Promise<GovernanceResolution> {
+    return await resolutionHelper("ops", addrs, cmd, delay, tag);
 }
 
 export async function treasuryResolution (addrs: CrocAddrs, cmd: CrocProtocolCmd, 
     delay: number, tag: string): Promise<GovernanceResolution> {
-    const timelock = await refContract("TimelockAccepts", addrs.govern.timelockTreasury) as TimelockAccepts
-    const policy = await refContract("CrocPolicy", addrs.policy) as CrocPolicy
-
-    let policyCall = await policy.populateTransaction.treasuryResolution(addrs.dex, 
-        cmd.callpath, cmd.protocolCmd, cmd.sudo ? cmd.sudo : false)
-    let timelockCalls = await populateTimelockCalls(timelock, addrs.policy, 
-        policyCall.data as string, delay)
-
-    return printResolution({
-        resolutionType: "treasury",
-        protocolCmd: cmd,
-        policyContract: addrs.policy,
-        dexContract: addrs.dex,
-        multisigOrigin: addrs.govern.multisigTreasury,
-        timelockCall: await timelockCalls,
-    }, tag)
+    return await resolutionHelper("treasury", addrs, cmd, delay, tag);
 }
 
 export async function opsTimelockSet (addrs: CrocAddrs, newDelay: number, oldDelay: number) {
@@ -97,12 +82,11 @@ export async function treasuryTimelockSet (addrs: CrocAddrs, newDelay: number, o
 
 async function timelockDelaySet (multisigAddr: string,
     timelockAddr: string, newDelay: number, oldDelay: number, tag: string) {
+    if (newDelay > 7 * 3600 * 24) {
+        throw new Error("Timelock delay exceeds seven days");
+    }
     const timelock = await refContract("TimelockAccepts", timelockAddr) as TimelockAccepts
     let delayCall = await timelock.populateTransaction.updateDelay(newDelay)
-
-    if (newDelay > 7 * 3600 * 24) {
-        throw new Error("Timelock delay exceeds seven days")
-    }
 
     let timelockCalls = await populateTimelockCalls(timelock, timelockAddr, delayCall.data as string,
         oldDelay)
