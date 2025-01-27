@@ -359,12 +359,12 @@ contract WarmPath is MarketSequencer, SettleLayer, ProtocolAccount {
         uint128 priceRootAtAskTick = pool.priceCeiling_;
         
         if(quoteTokenDecimal > baseTokenDecimal) {
-            priceRootAtBidTick = uint128(priceRootAtBidTick * 10**((quoteTokenDecimal - baseTokenDecimal)/2));
-            priceRootAtAskTick = uint128(priceRootAtAskTick * 10**((quoteTokenDecimal - baseTokenDecimal)/2));
+            priceRootAtBidTick = uint128(priceRootAtBidTick * 10**(quoteTokenDecimal - baseTokenDecimal));
+            priceRootAtAskTick = uint128(priceRootAtAskTick * 10**(quoteTokenDecimal - baseTokenDecimal));
         }
         else if(quoteTokenDecimal < baseTokenDecimal) {
-            priceRootAtBidTick = uint128(priceRootAtBidTick * 10**((baseTokenDecimal - quoteTokenDecimal)/2));
-            priceRootAtAskTick = uint128(priceRootAtAskTick * 10**((baseTokenDecimal - quoteTokenDecimal)/2));
+            priceRootAtBidTick = uint128(priceRootAtBidTick * 10**(baseTokenDecimal - quoteTokenDecimal));
+            priceRootAtAskTick = uint128(priceRootAtAskTick * 10**(baseTokenDecimal - quoteTokenDecimal));
         }
 
         bidTick = TickMath.getTickAtSqrtRatio(priceRootAtBidTick);
